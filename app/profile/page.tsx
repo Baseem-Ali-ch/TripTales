@@ -2,7 +2,7 @@
 
 import type React from "react";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import {
@@ -24,6 +24,8 @@ import {
   Save,
   CheckIcon,
   Bookmark,
+  EyeOff,
+  Lock,
 } from "lucide-react";
 import { Navbar } from "@/components/navbar";
 import { Footer } from "@/components/footer";
@@ -38,25 +40,6 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 import { useRouter } from "next/navigation";
-
-// Sample user data
-const USER = {
-  id: 1,
-  name: "Alex Johnson",
-  username: "alexj",
-  email: "alex.johnson@example.com",
-  bio: "Senior Frontend Developer passionate about creating intuitive user experiences. I write about web development, design patterns, and emerging technologies.",
-  coverPhoto: "/placeholder.svg?height=400&width=1200&text=Cover+Photo",
-  profilePicture: "/placeholder.svg?height=200&width=200&text=AJ",
-  followers: 245,
-  following: 132,
-  socialLinks: {
-    twitter: "https://twitter.com/alexj",
-    github: "https://github.com/alexj",
-    linkedin: "https://linkedin.com/in/alexj",
-    instagram: "https://instagram.com/alexj",
-  },
-};
 
 // Sample saved blogs data
 const SAVED_BLOGS = [
@@ -150,6 +133,7 @@ export default function ProfilePage() {
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState<boolean | null>(null);
   const [passwordStrength, setPasswordStrength] = useState(0);
+  const [showPassword, setShowPassword] = useState(false);
   const [passwordRequirements, setPasswordRequirements] = useState({
     length: false,
     uppercase: false,
@@ -157,25 +141,105 @@ export default function ProfilePage() {
     number: false,
     special: false,
   });
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [userData, setUserData] = useState({
+    name: "",
+    username: "",
+    email: "",
+    bio: "",
+    profilePicture: "",
+    coverPhoto: "",
+    followers: 0,
+    following: 0,
+    isPublic: true,
+    socialLinks: {
+      twitter: "",
+      github: "",
+      linkedin: "",
+      instagram: "",
+    },
+  });
   const [formData, setFormData] = useState({
-    name: USER.name,
-    username: USER.username,
-    email: USER.email,
-    bio: USER.bio,
-    twitter: USER.socialLinks.twitter,
-    github: USER.socialLinks.github,
-    linkedin: USER.socialLinks.linkedin,
-    instagram: USER.socialLinks.instagram,
+    name: "",
+    username: "",
+    email: "",
+    bio: "",
+    twitter: "",
+    github: "",
+    linkedin: "",
+    instagram: "",
     currentPassword: "",
     newPassword: "",
     confirmPassword: "",
     publicProfile: true,
   });
-  const [isLoggingOut, setIsLoggingOut] = useState(false);
-
   const fileInputCoverRef = useRef<HTMLInputElement>(null);
   const fileInputProfileRef = useRef<HTMLInputElement>(null);
+  const [isUploading, setIsUploading] = useState({
+    profile: false,
+    cover: false,
+  });
   const router = useRouter();
+
+  useEffect(() => {
+    const fetchUserData = async () => {
+      try {
+        const response = await fetch("/api/user/profile");
+        if (!response) {
+          throw new Error("Failed to fetch user data");
+        }
+        const data = await response.json();
+        setUserData(data);
+      } catch (error) {
+        setError("Failed to load profile data");
+        console.log("Error fetching user data:", error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    fetchUserData();
+  }, []);
+
+  // Initialize form data with user data
+  useEffect(() => {
+    if (userData) {
+      setFormData({
+        name: userData.name || "",
+        username: userData.username || "",
+        email: userData.email || "",
+        bio: userData?.bio || "",
+        twitter: userData.socialLinks?.twitter || "",
+        github: userData.socialLinks?.github || "",
+        linkedin: userData.socialLinks?.linkedin || "",
+        instagram: userData.socialLinks?.instagram || "",
+        currentPassword: "",
+        newPassword: "",
+        confirmPassword: "",
+        publicProfile: userData?.isPublic ?? true,
+      });
+    }
+  }, [userData]);
+
+  // Show error state
+  if (error) {
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <div className="text-center">
+          <AlertCircle className="h-10 w-10 mx-auto text-destructive" />
+          <p className="mt-2 text-destructive">{error}</p>
+          <Button
+            onClick={() => window.location.reload()}
+            variant="outline"
+            className="mt-4"
+          >
+            Try Again
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
   // Handle tab change
   const handleTabChange = (value: string) => {
@@ -192,14 +256,82 @@ export default function ProfilePage() {
     setMyBlogs(myBlogs.filter((blog) => blog.id !== id));
   };
 
-  // Handle cover photo upload
-  const handleCoverPhotoUpload = () => {
-    fileInputCoverRef.current?.click();
+  const handleFileUpload = async (file: File, type: "profile" | "cover") => {
+    try {
+      // Validate file size (max 5MB)
+      const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
+      if (file.size > MAX_FILE_SIZE) {
+        throw new Error("File size too large. Maximum size is 5MB.");
+      }
+
+      // Validate file type
+      const allowedTypes = ["image/jpeg", "image/png", "image/webp"];
+      if (!allowedTypes.includes(file.type)) {
+        throw new Error(
+          "Invalid file type. Please upload a JPEG, PNG, or WebP image."
+        );
+      }
+
+      setIsUploading((prev) => ({ ...prev, [type]: true }));
+
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("type", type);
+
+      const uploadResponse = await fetch("/api/user/upload", {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!uploadResponse.ok) {
+        throw new Error("Failed to upload image");
+      }
+
+      const { url } = await uploadResponse.json();
+
+      // Update user profile with new image URL
+      const updateResponse = await fetch("/api/user/profile", {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          [type === "profile" ? "profilePicture" : "coverPhoto"]: url,
+        }),
+      });
+
+      if (!updateResponse.ok) {
+        throw new Error("Failed to update profile");
+      }
+
+      // Update local state
+      setUserData((prev: any) => ({
+        ...prev,
+        [type === "profile" ? "profilePicture" : "coverPhoto"]: url,
+      }));
+    } catch (error) {
+      console.error("Error uploading image:", error);
+      setError(
+        error instanceof Error ? error.message : "Failed to upload image"
+      );
+    } finally {
+      setIsUploading((prev) => ({ ...prev, [type]: false }));
+    }
   };
 
-  // Handle profile picture upload
-  const handleProfilePictureUpload = () => {
-    fileInputProfileRef.current?.click();
+  // Update the existing handlers
+  const handleProfilePictureUpload = (
+    e: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    if (e.target.files && e.target.files[0]) {
+      handleFileUpload(e.target.files[0], "profile");
+    }
+  };
+
+  const handleCoverPhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      handleFileUpload(e.target.files[0], "cover");
+    }
   };
 
   // Handle form input change
@@ -239,38 +371,83 @@ export default function ProfilePage() {
   };
 
   // Handle form submission
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSaving(true);
+    setError(null);
 
-    // Simulate API call
-    setTimeout(() => {
-      setIsSaving(false);
+    try {
+      // Validate password if changing
+      if (formData.newPassword || formData.currentPassword) {
+        if (!formData.currentPassword) {
+          throw new Error("Current password is required");
+        }
+        if (!formData.newPassword) {
+          throw new Error("New password is required");
+        }
+        if (formData.newPassword !== formData.confirmPassword) {
+          throw new Error("Passwords do not match");
+        }
+        // Check password requirements
+        if (passwordStrength < 80) {
+          throw new Error("Password does not meet security requirements");
+        }
+      }
+
+      const response = await fetch("/api/user/profile", {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(formData),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to update profile");
+      }
+
+      setUserData(data);
       setSaveSuccess(true);
+
+      // Reset password fields
+      setFormData((prev) => ({
+        ...prev,
+        currentPassword: "",
+        newPassword: "",
+        confirmPassword: "",
+      }));
 
       // Reset success message after 3 seconds
       setTimeout(() => {
         setSaveSuccess(null);
         setIsEditingProfile(false);
       }, 3000);
-    }, 1500);
+    } catch (err) {
+      console.error("Error updating profile:", err);
+      setSaveSuccess(false);
+      setError(err instanceof Error ? err.message : "Failed to update profile");
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   // Reset form when canceling edit
   const handleCancelEdit = () => {
     setFormData({
-      name: USER.name,
-      username: USER.username,
-      email: USER.email,
-      bio: USER.bio,
-      twitter: USER.socialLinks.twitter,
-      github: USER.socialLinks.github,
-      linkedin: USER.socialLinks.linkedin,
-      instagram: USER.socialLinks.instagram,
+      name: userData.name || "",
+      username: userData.username || "",
+      email: userData.email || "",
+      bio: userData?.bio || "",
+      twitter: userData.socialLinks?.twitter || "",
+      github: userData.socialLinks?.github || "",
+      linkedin: userData.socialLinks?.linkedin || "",
+      instagram: userData.socialLinks?.instagram || "",
       currentPassword: "",
       newPassword: "",
       confirmPassword: "",
-      publicProfile: true,
+      publicProfile: userData?.isPublic ?? true,
     });
     setIsEditingProfile(false);
     setSaveSuccess(null);
@@ -305,24 +482,29 @@ export default function ProfilePage() {
           {/* Cover Photo */}
           <div className="relative h-48 md:h-64 lg:h-80 overflow-hidden">
             <Image
-              src={USER.coverPhoto || "/placeholder.svg"}
+              src={userData.coverPhoto || "/placeholder.svg"}
               alt="Cover Photo"
               fill
               className="object-cover"
               priority
             />
             <button
-              onClick={handleCoverPhotoUpload}
+              onClick={() => fileInputCoverRef.current?.click()}
               className="absolute bottom-4 right-4 bg-background/80 backdrop-blur-sm p-2 rounded-full hover:bg-background transition-colors"
-              aria-label="Change cover photo"
+              disabled={isUploading.cover}
             >
-              <Camera className="h-5 w-5" />
+              {isUploading.cover ? (
+                <Loader2 className="h-5 w-5 animate-spin" />
+              ) : (
+                <Camera className="h-5 w-5" />
+              )}
             </button>
             <input
               ref={fileInputCoverRef}
               type="file"
               accept="image/*"
               className="hidden"
+              onChange={handleCoverPhotoUpload}
               aria-label="Upload cover photo"
             />
           </div>
@@ -334,32 +516,37 @@ export default function ProfilePage() {
                 <div className="relative">
                   <Avatar className="h-32 w-32 border-4 border-background">
                     <AvatarImage
-                      src={USER.profilePicture || "/placeholder.svg"}
-                      alt={USER.name}
+                      src={userData.profilePicture || "/placeholder.svg"}
+                      alt={userData.name}
                     />
-                    <AvatarFallback>{USER.name.charAt(0)}</AvatarFallback>
+                    <AvatarFallback>{userData.name?.charAt(0)}</AvatarFallback>
                   </Avatar>
                   <button
-                    onClick={handleProfilePictureUpload}
+                    onClick={() => fileInputProfileRef.current?.click()}
                     className="absolute bottom-1 right-1 bg-background p-1.5 rounded-full hover:bg-muted transition-colors"
-                    aria-label="Change profile picture"
+                    disabled={isUploading.cover}
                   >
-                    <Camera className="h-4 w-4" />
+                    {isUploading.profile ? (
+                      <Loader2 className="h-5 w-5 animate-spin" />
+                    ) : (
+                      <Camera className="h-5 w-5" />
+                    )}
                   </button>
                   <input
                     ref={fileInputProfileRef}
                     type="file"
                     accept="image/*"
                     className="hidden"
+                    onChange={handleProfilePictureUpload}
                     aria-label="Upload profile picture"
                   />
                 </div>
 
                 <div className="mt-4 md:mt-0 md:ml-6">
                   <h1 className="text-2xl md:text-3xl font-bold">
-                    {USER.name}
+                    {userData.name}
                   </h1>
-                  <p className="text-muted-foreground">@{USER.username}</p>
+                  <p className="text-muted-foreground">@{userData.username}</p>
                 </div>
               </div>
 
@@ -367,11 +554,11 @@ export default function ProfilePage() {
               <div className="mt-4 md:mt-0 flex flex-col md:flex-row md:items-center gap-4">
                 <div className="flex gap-4">
                   <div className="text-center">
-                    <p className="font-bold">{USER.followers}</p>
+                    <p className="font-bold">{userData.followers}</p>
                     <p className="text-sm text-muted-foreground">Followers</p>
                   </div>
                   <div className="text-center">
-                    <p className="font-bold">{USER.following}</p>
+                    <p className="font-bold">{userData.following}</p>
                     <p className="text-sm text-muted-foreground">Following</p>
                   </div>
                 </div>
@@ -403,7 +590,7 @@ export default function ProfilePage() {
 
             {/* Bio */}
             <div className="mb-8">
-              <p className="text-muted-foreground">{USER.bio}</p>
+              <p className="text-muted-foreground">{userData.bio}</p>
             </div>
 
             {/* Profile Settings Section */}
@@ -494,24 +681,57 @@ export default function ProfilePage() {
                           <Label htmlFor="currentPassword">
                             Current Password
                           </Label>
-                          <Input
-                            id="currentPassword"
-                            name="currentPassword"
-                            type="password"
-                            value={formData.currentPassword}
-                            onChange={handleInputChange}
-                          />
+
+                          <div className="relative">
+                            <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                            <Input
+                              id="currentPassword"
+                              name="currentPassword"
+                              type={showPassword ? "text" : "password"}
+                              value={formData.currentPassword}
+                              onChange={handleInputChange}
+                              className="pl-10"
+                            />
+                            <button
+                              type="button"
+                              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                              onClick={() => setShowPassword(!showPassword)}
+                              disabled={isLoading}
+                            >
+                              {showPassword ? (
+                                <EyeOff className="h-4 w-4" />
+                              ) : (
+                                <Eye className="h-4 w-4" />
+                              )}
+                            </button>
+                          </div>
                         </div>
                         <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-6">
                           <div className="space-y-2">
                             <Label htmlFor="newPassword">New Password</Label>
-                            <Input
-                              id="newPassword"
-                              name="newPassword"
-                              type="password"
-                              value={formData.newPassword}
-                              onChange={handleInputChange}
-                            />
+                            <div className="relative">
+                              <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                              <Input
+                                id="newPassword"
+                                name="newPassword"
+                                type={showPassword ? "text" : "password"}
+                                value={formData.newPassword}
+                                onChange={handleInputChange}
+                                className="pl-10"
+                              />
+                              <button
+                                type="button"
+                                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                                onClick={() => setShowPassword(!showPassword)}
+                                disabled={isLoading}
+                              >
+                                {showPassword ? (
+                                  <EyeOff className="h-4 w-4" />
+                                ) : (
+                                  <Eye className="h-4 w-4" />
+                                )}
+                              </button>
+                            </div>
                             {formData.newPassword && (
                               <div className="mt-2 space-y-2">
                                 <div className="space-y-1">
@@ -620,13 +840,30 @@ export default function ProfilePage() {
                             <Label htmlFor="confirmPassword">
                               Confirm New Password
                             </Label>
-                            <Input
-                              id="confirmPassword"
-                              name="confirmPassword"
-                              type="password"
-                              value={formData.confirmPassword}
-                              onChange={handleInputChange}
-                            />
+
+                            <div className="relative">
+                              <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                              <Input
+                                id="confirmPassword"
+                                name="confirmPassword"
+                                type={showPassword ? "text" : "password"}
+                                value={formData.confirmPassword}
+                                onChange={handleInputChange}
+                                className="pl-10"
+                              />
+                              <button
+                                type="button"
+                                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                                onClick={() => setShowPassword(!showPassword)}
+                                disabled={isLoading}
+                              >
+                                {showPassword ? (
+                                  <EyeOff className="h-4 w-4" />
+                                ) : (
+                                  <Eye className="h-4 w-4" />
+                                )}
+                              </button>
+                            </div>
                             {formData.newPassword &&
                               formData.confirmPassword && (
                                 <p

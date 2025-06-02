@@ -15,6 +15,25 @@ model User {
   password          String
   emailVerified     Boolean   @default(false)
   verificationToken String?   @unique
+  image             String?
+  socialLinks       SocialLinks?
+  bio               String?   @db.Text
+  profilePicture    String?    
+  coverPhoto        String?  
+  isPublic          Boolean   @default(true)
+  isActive          Boolean   @default(true)
+  followers         User[]    @relation("UserFollows")
+  following         User[]    @relation("UserFollows")
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
 } 
+
+model SocialLinks {
+  id        String   @id @default(cuid())
+  twitter   String?
+  github    String?
+  linkedin  String?
+  instagram String?
+  userId    String   @unique
+  user      User     @relation(fields: [userId], references: [id])
+}
