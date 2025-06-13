@@ -1,10 +1,10 @@
-"use client"
+"use client";
 
-import type React from "react"
+import type React from "react";
 
-import { useState, useEffect } from "react"
-import Link from "next/link"
-import { usePathname } from "next/navigation"
+import { useState, useEffect } from "react";
+import Link from "next/link";
+import { usePathname, useRouter } from "next/navigation";
 import {
   Search,
   Bell,
@@ -23,11 +23,12 @@ import {
   Settings,
   LogOut,
   User,
-} from "lucide-react"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { Badge } from "@/components/ui/badge"
+  Loader2,
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -35,44 +36,66 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
-import { cn } from "@/lib/utils"
-import { useTheme } from "@/components/theme-provider"
+} from "@/components/ui/dropdown-menu";
+import { cn } from "@/lib/utils";
+import { useTheme } from "@/components/theme-provider";
 
 interface AdminLayoutProps {
-  children: React.ReactNode
+  children: React.ReactNode;
 }
 
 export function AdminLayout({ children }: AdminLayoutProps) {
-  const pathname = usePathname()
-  const { theme, setTheme } = useTheme()
-  const [isSidebarOpen, setIsSidebarOpen] = useState(true)
-  const [isMobile, setIsMobile] = useState(false)
+  const pathname = usePathname();
+  const { theme, setTheme } = useTheme();
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [isMobile, setIsMobile] = useState(false);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
+
+  const router = useRouter();
 
   // Check if mobile on mount and when window resizes
   useEffect(() => {
     const checkIfMobile = () => {
-      setIsMobile(window.innerWidth < 1024)
+      setIsMobile(window.innerWidth < 1024);
       if (window.innerWidth < 1024) {
-        setIsSidebarOpen(false)
+        setIsSidebarOpen(false);
       } else {
-        setIsSidebarOpen(true)
+        setIsSidebarOpen(true);
       }
-    }
+    };
 
     // Initial check
-    checkIfMobile()
+    checkIfMobile();
 
     // Add event listener
-    window.addEventListener("resize", checkIfMobile)
+    window.addEventListener("resize", checkIfMobile);
 
     // Cleanup
-    return () => window.removeEventListener("resize", checkIfMobile)
-  }, [])
+    return () => window.removeEventListener("resize", checkIfMobile);
+  }, []);
 
   const toggleSidebar = () => {
-    setIsSidebarOpen(!isSidebarOpen)
-  }
+    setIsSidebarOpen(!isSidebarOpen);
+  };
+
+  const handleLogout = async () => {
+    try {
+      setIsLoggingOut(true);
+      const response = await fetch("/api/auth/admin/logout", {
+        method: "POST",
+      });
+
+      if (!response.ok) {
+        throw new Error("Logout failed");
+      }
+
+      // Redirect to login page
+      router.push("/auth/login?tab=admin");
+    } catch (error) {
+      console.error("Logout error:", error);
+      setIsLoggingOut(false);
+    }
+  };
 
   const sidebarItems = [
     {
@@ -111,7 +134,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
       icon: <Settings className="h-5 w-5" />,
       href: "/admin/settings",
     },
-  ]
+  ];
 
   return (
     <div className="flex h-screen overflow-hidden bg-background">
@@ -119,7 +142,9 @@ export function AdminLayout({ children }: AdminLayoutProps) {
       <aside
         className={cn(
           "fixed inset-y-0 left-0 z-50 flex w-64 flex-col border-r bg-card transition-all duration-300 lg:relative",
-          isSidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0 lg:w-20",
+          isSidebarOpen
+            ? "translate-x-0"
+            : "-translate-x-full lg:translate-x-0 lg:w-20"
         )}
       >
         {/* Sidebar Header with Logo */}
@@ -128,7 +153,9 @@ export function AdminLayout({ children }: AdminLayoutProps) {
             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary">
               <FileText className="h-4 w-4 text-primary-foreground" />
             </div>
-            {isSidebarOpen && <span className="text-xl font-bold">BlogFolio</span>}
+            {isSidebarOpen && (
+              <span className="text-xl font-bold">BlogFolio</span>
+            )}
           </Link>
           <Button
             variant="ghost"
@@ -137,7 +164,12 @@ export function AdminLayout({ children }: AdminLayoutProps) {
             onClick={toggleSidebar}
             aria-label={isSidebarOpen ? "Collapse sidebar" : "Expand sidebar"}
           >
-            <ChevronRight className={cn("h-5 w-5 transition-transform", !isSidebarOpen && "rotate-180")} />
+            <ChevronRight
+              className={cn(
+                "h-5 w-5 transition-transform",
+                !isSidebarOpen && "rotate-180"
+              )}
+            />
           </Button>
           {isMobile && (
             <Button
@@ -153,11 +185,13 @@ export function AdminLayout({ children }: AdminLayoutProps) {
         </div>
 
         {/* Admin User Card */}
-        <div className={cn("px-4 py-4", !isSidebarOpen && "flex justify-center")}>
+        <div
+          className={cn("px-4 py-4", !isSidebarOpen && "flex justify-center")}
+        >
           {isSidebarOpen ? (
             <div className="flex items-center gap-3 rounded-lg border bg-card p-3">
               <Avatar>
-                <AvatarImage src="/placeholder.svg?height=40&width=40&text=AJ" alt="Admin" />
+                <AvatarImage src="/logo2.png" alt="Admin" />
                 <AvatarFallback>AJ</AvatarFallback>
               </Avatar>
               <div className="flex flex-col">
@@ -167,7 +201,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
             </div>
           ) : (
             <Avatar>
-              <AvatarImage src="/placeholder.svg?height=40&width=40&text=AJ" alt="Admin" />
+              <AvatarImage src="/logo2.png" alt="Admin" />
               <AvatarFallback>AJ</AvatarFallback>
             </Avatar>
           )}
@@ -184,11 +218,15 @@ export function AdminLayout({ children }: AdminLayoutProps) {
                     "flex items-center gap-3 rounded-lg px-3 py-2 transition-colors",
                     pathname === item.href
                       ? "bg-primary text-primary-foreground"
-                      : "hover:bg-muted text-muted-foreground hover:text-foreground",
+                      : "hover:bg-muted text-muted-foreground hover:text-foreground"
                   )}
                 >
                   {item.icon}
-                  {isSidebarOpen && <span className="flex-1 text-sm font-medium">{item.title}</span>}
+                  {isSidebarOpen && (
+                    <span className="flex-1 text-sm font-medium">
+                      {item.title}
+                    </span>
+                  )}
                   {isSidebarOpen && item.badge && (
                     <Badge variant="outline" className="ml-auto">
                       {item.badge}
@@ -206,11 +244,19 @@ export function AdminLayout({ children }: AdminLayoutProps) {
             variant="ghost"
             className={cn(
               "w-full justify-start text-muted-foreground hover:text-foreground",
-              !isSidebarOpen && "justify-center px-0",
+              !isSidebarOpen && "justify-center px-0"
             )}
+            onClick={handleLogout}
+            disabled={isLoggingOut}
+            aria-busy={isLoggingOut}
+            aria-label="Logout"
           >
             <LogOut className="h-5 w-5" />
-            {isSidebarOpen && <span className="ml-2">Logout</span>}
+            {isSidebarOpen && (
+              <span className="ml-2">
+                {isLoggingOut ? <>Logging out...</> : "Logout"}
+              </span>
+            )}
           </Button>
         </div>
       </aside>
@@ -231,17 +277,31 @@ export function AdminLayout({ children }: AdminLayoutProps) {
             </Button>
             <div className="relative hidden md:block w-64 lg:w-80">
               <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-              <Input type="search" placeholder="Search..." className="w-full bg-background pl-8 md:w-64 lg:w-80" />
+              <Input
+                type="search"
+                placeholder="Search..."
+                className="w-full bg-background pl-8 md:w-64 lg:w-80"
+              />
             </div>
           </div>
           <div className="flex items-center gap-4">
-            <Button variant="ghost" size="icon" className="text-muted-foreground" aria-label="Notifications">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="text-muted-foreground"
+              aria-label="Notifications"
+            >
               <Bell className="h-5 w-5" />
               <span className="absolute -mt-5 -mr-5 flex h-5 w-5 items-center justify-center rounded-full bg-primary text-[10px] text-primary-foreground">
                 3
               </span>
             </Button>
-            <Button variant="ghost" size="icon" className="text-muted-foreground" aria-label="Messages">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="text-muted-foreground"
+              aria-label="Messages"
+            >
               <MessageSquare className="h-5 w-5" />
               <span className="absolute -mt-5 -mr-5 flex h-5 w-5 items-center justify-center rounded-full bg-primary text-[10px] text-primary-foreground">
                 5
@@ -252,15 +312,23 @@ export function AdminLayout({ children }: AdminLayoutProps) {
               size="icon"
               className="text-muted-foreground"
               onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
-              aria-label={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+              aria-label={
+                theme === "dark"
+                  ? "Switch to light mode"
+                  : "Switch to dark mode"
+              }
             >
-              {theme === "dark" ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
+              {theme === "dark" ? (
+                <Sun className="h-5 w-5" />
+              ) : (
+                <Moon className="h-5 w-5" />
+              )}
             </Button>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" size="icon" className="rounded-full">
                   <Avatar className="h-8 w-8">
-                    <AvatarImage src="/placeholder.svg?height=32&width=32&text=AJ" alt="Admin" />
+                    <AvatarImage src="/logo2.png" alt="Admin" />
                     <AvatarFallback>AJ</AvatarFallback>
                   </Avatar>
                 </Button>
@@ -292,8 +360,11 @@ export function AdminLayout({ children }: AdminLayoutProps) {
 
       {/* Mobile Sidebar Overlay */}
       {isSidebarOpen && isMobile && (
-        <div className="fixed inset-0 z-40 bg-background/80 backdrop-blur-sm lg:hidden" onClick={toggleSidebar} />
+        <div
+          className="fixed inset-0 z-40 bg-background/80 backdrop-blur-sm lg:hidden"
+          onClick={toggleSidebar}
+        />
       )}
     </div>
-  )
+  );
 }

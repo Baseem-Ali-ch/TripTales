@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { AdminLayout } from "@/components/admin/layout"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -44,55 +44,10 @@ import {
   Eye,
   Hash,
   Users,
+  Loader2,
 } from "lucide-react"
-
-// Mock data for categories
-const mockCategories = [
-  {
-    id: 1,
-    name: "Technology",
-    slug: "technology",
-    description: "Articles about latest technology trends and innovations",
-    color: "#3b82f6",
-    blogCount: 15,
-    parentId: null,
-    createdAt: "2024-01-01T00:00:00Z",
-    updatedAt: "2024-01-15T10:30:00Z",
-  },
-  {
-    id: 2,
-    name: "Web Development",
-    slug: "web-development",
-    description: "Frontend and backend development tutorials",
-    color: "#10b981",
-    blogCount: 8,
-    parentId: 1,
-    createdAt: "2024-01-02T00:00:00Z",
-    updatedAt: "2024-01-14T15:45:00Z",
-  },
-  {
-    id: 3,
-    name: "Design",
-    slug: "design",
-    description: "UI/UX design principles and best practices",
-    color: "#f59e0b",
-    blogCount: 6,
-    parentId: null,
-    createdAt: "2024-01-03T00:00:00Z",
-    updatedAt: "2024-01-13T09:20:00Z",
-  },
-  {
-    id: 4,
-    name: "Mobile Development",
-    slug: "mobile-development",
-    description: "iOS and Android app development",
-    color: "#8b5cf6",
-    blogCount: 4,
-    parentId: 1,
-    createdAt: "2024-01-04T00:00:00Z",
-    updatedAt: "2024-01-12T14:10:00Z",
-  },
-]
+import { toast } from "sonner"
+import { Categories } from "@/type"
 
 // Mock data for tags
 const mockTags = [
@@ -144,12 +99,15 @@ const mockTags = [
 ]
 
 export default function CategoriesTagsPage() {
-  const [categories, setCategories] = useState(mockCategories)
-  const [tags, setTags] = useState(mockTags)
+  const [categories, setCategories] = useState<Categories[]>([])
+  const [tags, setTags] = useState([])
   const [selectedCategories, setSelectedCategories] = useState<number[]>([])
   const [selectedTags, setSelectedTags] = useState<number[]>([])
   const [searchTerm, setSearchTerm] = useState("")
   const [activeTab, setActiveTab] = useState("categories")
+  const [page, setPage] = useState(1)
+  const [hasMore, setHasMore] = useState(true)
+  const [loading, setLoading] = useState(false)
 
   // Dialog states
   const [showCategoryDialog, setShowCategoryDialog] = useState(false)
@@ -164,7 +122,6 @@ export default function CategoriesTagsPage() {
     slug: "",
     description: "",
     color: "#3b82f6",
-    parentId: null,
   })
 
   const [tagForm, setTagForm] = useState({
@@ -175,14 +132,14 @@ export default function CategoriesTagsPage() {
   })
 
   // Stats calculation
-  const totalCategories = categories.length
+  const totalCategories = categories?.length
   const totalTags = tags.length
-  const totalCategoryBlogs = categories.reduce((sum, cat) => sum + cat.blogCount, 0)
-  const totalTagBlogs = tags.reduce((sum, tag) => sum + tag.blogCount, 0)
+  const totalCategoryBlogs = categories.reduce((sum, cat) => sum + cat.blogs.length, 0)
+  const totalTagBlogs = tags.reduce((sum, tag) => sum + tag.blogs.length, 0)
 
   // Filter functions
   const filteredCategories = categories.filter(
-    (category) =>
+    (category: Categories) =>
       category.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       category.description.toLowerCase().includes(searchTerm.toLowerCase()),
   )
@@ -193,6 +150,49 @@ export default function CategoriesTagsPage() {
       tag.description.toLowerCase().includes(searchTerm.toLowerCase()),
   )
 
+  // Get all categories
+  const fetchCategories = async (newPage = 1) => {
+    try {
+      setLoading(true);
+      const response = await fetch(
+        `/api/admin/category?page=${newPage}`
+      );
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch categories');
+      }
+
+      const data = await response.json();
+
+      // If it's the first page, reset categories
+      if (newPage === 1) {
+        setCategories(data.categories);
+      } else {
+        setCategories(prev => [...prev, ...data.categories]);
+      }
+
+      setHasMore(data.hasMore);
+      setPage(newPage);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Failed to fetch categories');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Initial fetch
+  useEffect(() => {
+    fetchCategories();
+  }, []);
+
+  // Load more handler
+  const handleLoadMore = () => {
+    if (hasMore && !loading) {
+      setPage(prev => prev + 1);
+      fetchCategories(page + 1);
+    }
+  };
+
   // Category functions
   const handleCreateCategory = () => {
     setCategoryForm({
@@ -200,7 +200,6 @@ export default function CategoriesTagsPage() {
       slug: "",
       description: "",
       color: "#3b82f6",
-      parentId: null,
     })
     setEditingItem(null)
     setShowCategoryDialog(true)
@@ -212,36 +211,94 @@ export default function CategoriesTagsPage() {
       slug: category.slug,
       description: category.description,
       color: category.color,
-      parentId: category.parentId,
     })
     setEditingItem(category)
     setShowCategoryDialog(true)
   }
 
+  const submitCategory = async () => {
+    try {
+      setLoading(true);
+      let response;
+
+      if (editingItem) {
+        // Update existing category
+        response = await fetch('/api/admin/category', {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            id: editingItem.id,
+            name: categoryForm.name,
+            slug: categoryForm.slug,
+            description: categoryForm.description,
+            color: categoryForm.color
+          }),
+        });
+      } else {
+        // Create new category
+        response = await fetch('/api/admin/category', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            name: categoryForm.name,
+            slug: categoryForm.slug,
+            description: categoryForm.description,
+            color: categoryForm.color
+          }),
+        });
+      }
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to save category');
+      }
+
+      // Show success toast
+      toast.success('Category updated successfully');
+
+      // Update the categories list
+      if (editingItem) {
+        // Update existing category
+        setCategories(prev =>
+          prev.map(cat =>
+            cat.id === editingItem.id ? { ...cat, ...data } : cat
+          )
+        );
+      } else {
+        // Add new category
+        setCategories(prev => [...prev, data]);
+      }
+
+      // Reset form
+      setCategoryForm({
+        name: "",
+        slug: "",
+        description: "",
+        color: "#3b82f6",
+      });
+
+      // Clear editing state
+      setEditingItem(null);
+
+      // Close dialog
+      setShowCategoryDialog(false);
+
+    } catch (error) {
+      // Show error toast
+      toast.error(error instanceof Error ? error.message : 'Failed to save category');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleDeleteCategory = (category: any) => {
     setDeleteItem(category)
     setShowDeleteDialog(true)
-  }
-
-  const submitCategory = () => {
-    if (editingItem) {
-      setCategories((prev) =>
-        prev.map((cat) =>
-          cat.id === editingItem.id ? { ...cat, ...categoryForm, updatedAt: new Date().toISOString() } : cat,
-        ),
-      )
-    } else {
-      const newCategory = {
-        id: Date.now(),
-        ...categoryForm,
-        slug: categoryForm.slug || categoryForm.name.toLowerCase().replace(/\s+/g, "-"),
-        blogCount: 0,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      }
-      setCategories((prev) => [...prev, newCategory])
-    }
-    setShowCategoryDialog(false)
   }
 
   // Tag functions
@@ -288,28 +345,31 @@ export default function CategoriesTagsPage() {
     setShowTagDialog(false)
   }
 
-  const confirmDelete = () => {
+  const confirmDelete = async () => {
     if (activeTab === "categories") {
       setCategories((prev) => prev.filter((cat) => cat.id !== deleteItem.id))
+      const response = await fetch(`/api/admin/category/${deleteItem.id}`, {
+        method: "DELETE",
+      })
+      if (!response.ok) {
+        throw new Error("Failed to delete category");
+      }
+      toast.success('Category deleted successfully');
     } else {
       setTags((prev) => prev.filter((tag) => tag.id !== deleteItem.id))
+      const response = await fetch(`/api/admin/category/${deleteItem.id}`, {
+        method: "DELETE",
+      })
+      if (!response.ok) {
+        throw new Error("Failed to delete tag");
+      }
+      toast.success('Tag deleted successfully');
     }
     setShowDeleteDialog(false)
   }
 
-  const handleSelectCategory = (categoryId: number) => {
-    setSelectedCategories((prev) =>
-      prev.includes(categoryId) ? prev.filter((id) => id !== categoryId) : [...prev, categoryId],
-    )
-  }
-
   const handleSelectTag = (tagId: number) => {
     setSelectedTags((prev) => (prev.includes(tagId) ? prev.filter((id) => id !== tagId) : [...prev, tagId]))
-  }
-
-  const getParentCategory = (parentId: number | null) => {
-    if (!parentId) return null
-    return categories.find((cat) => cat.id === parentId)
   }
 
   return (
@@ -427,22 +487,12 @@ export default function CategoriesTagsPage() {
                       className="border rounded-lg p-4 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
                     >
                       <div className="flex items-center gap-4">
-                        <Checkbox
-                          checked={selectedCategories.includes(category.id)}
-                          onCheckedChange={() => handleSelectCategory(category.id)}
-                        />
-                        <GripVertical className="h-4 w-4 text-gray-400 cursor-move" />
                         <div className="w-4 h-4 rounded-full" style={{ backgroundColor: category.color }} />
                         <div className="flex-1">
                           <div className="flex items-center gap-2">
                             <h3 className="font-medium">{category.name}</h3>
-                            {getParentCategory(category.parentId) && (
-                              <Badge variant="outline" className="text-xs">
-                                {getParentCategory(category.parentId)?.name}
-                              </Badge>
-                            )}
                             <Badge variant="secondary" className="text-xs">
-                              {category.blogCount} posts
+                              {category.blogs.length} posts
                             </Badge>
                           </div>
                           <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">{category.description}</p>
@@ -477,6 +527,16 @@ export default function CategoriesTagsPage() {
                     </div>
                   ))}
                 </div>
+                {hasMore && !loading && (
+                  <Button onClick={handleLoadMore} variant="outline" className="w-full justify-center">
+                    Load More
+                  </Button>
+                )}
+                {loading && (
+                  <div className="flex justify-center h-20 items-center">
+                    <Loader2 className="h-9 w-9 animate-spin text-blue-600" />
+                  </div>
+                )}
               </CardContent>
             </Card>
           </TabsContent>
@@ -588,32 +648,6 @@ export default function CategoriesTagsPage() {
               />
             </div>
             <div>
-              <Label htmlFor="category-parent">Parent Category</Label>
-              <Select
-                value={categoryForm.parentId?.toString() || "none"}
-                onValueChange={(value) =>
-                  setCategoryForm((prev) => ({
-                    ...prev,
-                    parentId: value === "none" ? null : Number.parseInt(value),
-                  }))
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select parent category" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">No Parent</SelectItem>
-                  {categories
-                    .filter((cat) => !editingItem || cat.id !== editingItem.id)
-                    .map((category) => (
-                      <SelectItem key={category.id} value={category.id.toString()}>
-                        {category.name}
-                      </SelectItem>
-                    ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
               <Label htmlFor="category-color">Color</Label>
               <div className="flex items-center gap-2">
                 <Input
@@ -636,9 +670,16 @@ export default function CategoriesTagsPage() {
             <Button variant="outline" onClick={() => setShowCategoryDialog(false)}>
               Cancel
             </Button>
-            <Button onClick={submitCategory} disabled={!categoryForm.name.trim()}>
-              {editingItem ? "Update" : "Create"} Category
-            </Button>
+            {loading ? (
+              <Button disabled>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                {editingItem ? "Updating..." : "Creating..."}
+              </Button>
+            ) : (
+              <Button onClick={submitCategory} disabled={!categoryForm.name.trim()}>
+                {editingItem ? "Update" : "Create"} Category
+              </Button>
+            )}
           </DialogFooter>
         </DialogContent>
       </Dialog>

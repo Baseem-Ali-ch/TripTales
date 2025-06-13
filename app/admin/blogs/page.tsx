@@ -52,6 +52,7 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { cn } from "@/lib/utils"
 import { Calendar as CalendarComponent } from "@/components/ui/calendar"
+import { BlogStepperForm } from "@/components/blog-stepper-form"
 
 // Sample blog data
 const BLOGS = [
@@ -1076,7 +1077,7 @@ export default function BlogManagementPage() {
                               ...currentBlog,
                               tags: [...currentBlog.tags, newTag],
                             })
-                            ;(e.target as HTMLInputElement).value = ""
+                              ; (e.target as HTMLInputElement).value = ""
                           }
                         }
                       }}
@@ -1202,113 +1203,22 @@ export default function BlogManagementPage() {
           </DialogContent>
         </Dialog>
 
-        {/* Create/Edit Blog Modal */}
-        <Dialog open={isAddBlogOpen} onOpenChange={setIsAddBlogOpen}>
-          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle>{currentBlog ? "Edit Blog" : "Create New Blog"}</DialogTitle>
-              <DialogDescription>
-                {currentBlog ? "Make changes to your blog post." : "Add a new blog post to your website."}
-              </DialogDescription>
-            </DialogHeader>
-            <div className="grid gap-6 py-4">
-              <div className="space-y-2">
-                <Label htmlFor="blog-title">Title</Label>
-                <Input id="blog-title" placeholder="Enter blog title" defaultValue={currentBlog?.title || ""} />
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="blog-category">Category</Label>
-                  <Select defaultValue={currentBlog?.category || CATEGORIES[1]}>
-                    <SelectTrigger id="blog-category">
-                      <SelectValue placeholder="Select category" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {CATEGORIES.filter((category) => category !== "All Categories").map((category) => (
-                        <SelectItem key={category} value={category}>
-                          {category}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="blog-status">Status</Label>
-                  <Select defaultValue={currentBlog?.status || "draft"}>
-                    <SelectTrigger id="blog-status">
-                      <SelectValue placeholder="Select status" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="published">Published</SelectItem>
-                      <SelectItem value="draft">Draft</SelectItem>
-                      <SelectItem value="pending">Pending Review</SelectItem>
-                      <SelectItem value="archived">Archived</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="blog-excerpt">Excerpt</Label>
-                <Textarea
-                  id="blog-excerpt"
-                  placeholder="Enter a short excerpt"
-                  className="min-h-[100px]"
-                  defaultValue={currentBlog?.excerpt || ""}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="blog-content">Content</Label>
-                <Textarea
-                  id="blog-content"
-                  placeholder="Write your blog content here..."
-                  className="min-h-[300px]"
-                  defaultValue={""}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>Featured Image</Label>
-                <div className="border rounded-md p-4">
-                  <div className="aspect-video w-full overflow-hidden rounded-md mb-4">
-                    <img
-                      src={currentBlog?.featuredImage || "/placeholder.svg?height=200&width=400&text=Featured+Image"}
-                      alt="Featured"
-                      className="object-cover h-full w-full"
-                    />
-                  </div>
-                  <Button variant="outline" className="w-full">
-                    <Upload className="mr-2 h-4 w-4" />
-                    {currentBlog?.featuredImage ? "Change Image" : "Upload Image"}
-                  </Button>
-                </div>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="blog-tags">Tags</Label>
-                <div className="flex flex-wrap gap-2 mb-2">
-                  {(currentBlog?.tags || []).map((tag: string) => (
-                    <Badge key={tag} variant="secondary">
-                      {tag}
-                      <button className="ml-1 text-muted-foreground hover:text-foreground">
-                        <X className="h-3 w-3" />
-                      </button>
-                    </Badge>
-                  ))}
-                </div>
-                <div className="flex gap-2">
-                  <Input id="blog-tags" placeholder="Add a tag" />
-                  <Button type="button" variant="outline" size="icon">
-                    <Plus className="h-4 w-4" />
-                  </Button>
-                </div>
-              </div>
-            </div>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setIsAddBlogOpen(false)}>
-                Cancel
-              </Button>
-              <Button type="submit">{currentBlog ? "Save Changes" : "Create Blog"}</Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+        {/* Blog Stepper Form */}
+        <BlogStepperForm
+          isOpen={isAddBlogOpen}
+          onClose={() => {
+            setIsAddBlogOpen(false)
+            setCurrentBlog(null)
+          }}
+          blog={currentBlog}
+          onSave={(blogData) => {
+            console.log("Blog saved:", blogData)
+            // In a real app, you would save the blog data
+            setIsAddBlogOpen(false)
+            setCurrentBlog(null)
+          }}
+          isAdmin={true}
+        />
 
         {/* Blog Preview Modal */}
         <Dialog open={isPreviewOpen} onOpenChange={setIsPreviewOpen}>

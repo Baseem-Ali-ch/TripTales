@@ -42,6 +42,13 @@ export async function POST(req: Request) {
       );
     }
 
+    if(!user.isActive){
+      return NextResponse.json(
+        { error: "Your account is not active. Please contact admin" },
+        { status: 400 }
+      );
+    }
+
     // Generate JWT token
     const token = sign(
       {

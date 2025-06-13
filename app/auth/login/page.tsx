@@ -5,7 +5,7 @@ import type React from "react";
 import { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   Eye,
   EyeOff,
@@ -26,11 +26,14 @@ import { cn } from "@/lib/utils";
 
 export default function LoginPage() {
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState("user");
+  const searchParams = useSearchParams();
+
   const [isLoading, setIsLoading] = useState(false);
   const [loginError, setLoginError] = useState<string | null>(null);
   const [loginSuccess, setLoginSuccess] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const currentTab = searchParams.get("tab") || "user";
+  const [activeTab, setActiveTab] = useState(currentTab);
 
   // User login form state
   const [userForm, setUserForm] = useState({
@@ -58,16 +61,11 @@ export default function LoginPage() {
     },
   });
 
-  // Demo credentials
-  const demoCredentials = {
-    admin: {
-      email: "admin@gmail.com",
-      password: "Admin@123",
-    },
-  };
-
   // Handle tab change
   const handleTabChange = (value: string) => {
+    const params = new URLSearchParams(searchParams.toString());
+    params.set("tab", value);
+    router.push(`/auth/login?${params.toString()}`);
     setActiveTab(value);
     setLoginError(null);
   };
@@ -300,7 +298,8 @@ export default function LoginPage() {
           </div>
 
           <Tabs
-            defaultValue="user"
+            defaultValue={currentTab}
+            value={activeTab}
             className="w-full"
             onValueChange={handleTabChange}
           >

@@ -201,11 +201,10 @@ export default function AdminProfilePage() {
           {/* Main Content */}
           <div className="lg:col-span-2">
             <Tabs defaultValue="personal" className="space-y-6">
-              <TabsList className="grid w-full grid-cols-4">
+              <TabsList className="grid w-full grid-cols-3">
                 <TabsTrigger value="personal">Personal</TabsTrigger>
                 <TabsTrigger value="security">Security</TabsTrigger>
                 <TabsTrigger value="notifications">Notifications</TabsTrigger>
-                <TabsTrigger value="activity">Activity</TabsTrigger>
               </TabsList>
 
               <TabsContent value="personal" className="space-y-6">
@@ -368,7 +367,7 @@ export default function AdminProfilePage() {
 
               <TabsContent value="notifications" className="space-y-6">
                 <Card>
-                  <CardHeader>
+                  {/* <CardHeader>
                     <CardTitle className="flex items-center gap-2">
                       <Bell className="h-5 w-5" />
                       Notification Preferences
@@ -482,57 +481,24 @@ export default function AdminProfilePage() {
                         />
                       </div>
                     </div>
-                  </CardContent>
-                </Card>
-              </TabsContent>
-
-              <TabsContent value="activity" className="space-y-6">
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <Activity className="h-5 w-5" />
-                      Recent Activity
-                    </CardTitle>
-                    <CardDescription>
-                      Your recent actions and activity on the platform
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-4">
-                      {recentActivity.map((activity, index) => (
-                        <div
-                          key={index}
-                          className="flex items-start gap-3 p-3 border rounded-lg"
-                        >
-                          <div className="mt-1">
-                            {activity.type === "post" && (
-                              <Settings className="h-4 w-4 text-blue-500" />
-                            )}
-                            {activity.type === "comment" && (
-                              <Mail className="h-4 w-4 text-green-500" />
-                            )}
-                            {activity.type === "user" && (
-                              <User className="h-4 w-4 text-purple-500" />
-                            )}
-                            {activity.type === "settings" && (
-                              <Settings className="h-4 w-4 text-orange-500" />
-                            )}
-                            {activity.type === "category" && (
-                              <Settings className="h-4 w-4 text-red-500" />
-                            )}
-                          </div>
-                          <div className="flex-1">
-                            <p className="text-sm">{activity.action}</p>
-                            <p className="text-xs text-muted-foreground">
-                              {activity.time}
-                            </p>
-                          </div>
-                        </div>
-                      ))}
+                  </CardContent> */}
+                  <CardTitle className="flex items-center p-4 gap-2">
+                    <Bell className="h-5 w-5" />
+                    Notification Preferences
+                  </CardTitle>
+                  <CardDescription className="p-4">
+                    Choose how you want to be notified about activity
+                  </CardDescription>
+                  <CardContent className="p-4">
+                    <div className="flex flex-col items-center justify-center h-full">
+                      <p className="text-sm text-muted-foreground">
+                        This feature is coming soon
+                      </p>
                     </div>
                   </CardContent>
                 </Card>
               </TabsContent>
+
             </Tabs>
           </div>
         </div>
