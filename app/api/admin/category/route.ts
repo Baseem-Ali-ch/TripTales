@@ -77,14 +77,14 @@ export async function POST(request: Request) {
             return NextResponse.json({ error: "Invalid token" }, { status: 401 });
         }
 
-        const { name, slug, description, color } = await request.json();
+        const data = await request.json();
 
-        if (!name || !slug || !description || !color) {
-            return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
+        if (!data.name || !data.slug) {
+            return NextResponse.json({ error: "Name and slug are required" }, { status: 400 });
         }
 
         const slugExists = await prisma.category.findUnique({
-            where: { slug },
+            where: { slug: data.slug },
         });
 
         if (slugExists) {
@@ -92,7 +92,7 @@ export async function POST(request: Request) {
         }
 
         const category = await prisma.category.create({
-            data: { name, slug, description, color },
+            data: { name: data.name, slug: data.slug, description: data.description || '', color: data.color || '#3b82f6' },
         });
 
         return NextResponse.json(category, { status: 201 });

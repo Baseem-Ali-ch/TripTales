@@ -45,9 +45,10 @@ import {
   Hash,
   Users,
   Loader2,
+  RefreshCw,
 } from "lucide-react"
 import { toast } from "sonner"
-import { Categories } from "@/type"
+import { Categories, Tags } from "@/type"
 
 // Mock data for tags
 const mockTags = [
@@ -100,7 +101,7 @@ const mockTags = [
 
 export default function CategoriesTagsPage() {
   const [categories, setCategories] = useState<Categories[]>([])
-  const [tags, setTags] = useState([])
+  const [tags, setTags] = useState<Tags[]>([])
   const [selectedCategories, setSelectedCategories] = useState<number[]>([])
   const [selectedTags, setSelectedTags] = useState<number[]>([])
   const [searchTerm, setSearchTerm] = useState("")
@@ -108,6 +109,8 @@ export default function CategoriesTagsPage() {
   const [page, setPage] = useState(1)
   const [hasMore, setHasMore] = useState(true)
   const [loading, setLoading] = useState(false)
+  const [totalCategories, setTotalCategories] = useState(0)
+  const [totalTags, setTotalTags] = useState(0)
 
   // Dialog states
   const [showCategoryDialog, setShowCategoryDialog] = useState(false)
@@ -132,10 +135,8 @@ export default function CategoriesTagsPage() {
   })
 
   // Stats calculation
-  const totalCategories = categories?.length
-  const totalTags = tags.length
-  const totalCategoryBlogs = categories.reduce((sum, cat) => sum + cat.blogs.length, 0)
-  const totalTagBlogs = tags.reduce((sum, tag) => sum + tag.blogs.length, 0)
+  const totalCategoryBlogs = categories.reduce((sum, cat) => sum + (cat?.blogs?.length || 0), 0)
+  const totalTagBlogs = tags.reduce((sum, tag) => sum + (tag?.blogs?.length || 0), 0)
 
   // Filter functions
   const filteredCategories = categories.filter(
@@ -145,7 +146,7 @@ export default function CategoriesTagsPage() {
   )
 
   const filteredTags = tags.filter(
-    (tag) =>
+    (tag: Tags) =>
       tag.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       tag.description.toLowerCase().includes(searchTerm.toLowerCase()),
   )
@@ -167,6 +168,7 @@ export default function CategoriesTagsPage() {
       // If it's the first page, reset categories
       if (newPage === 1) {
         setCategories(data.categories);
+        setTotalCategories(data.total);
       } else {
         setCategories(prev => [...prev, ...data.categories]);
       }
@@ -236,6 +238,10 @@ export default function CategoriesTagsPage() {
             color: categoryForm.color
           }),
         });
+        if (!response.ok) {
+          throw new Error("Failed to update category");
+        }
+        toast.success("Category updated successfully")
       } else {
         // Create new category
         response = await fetch('/api/admin/category', {
@@ -259,7 +265,7 @@ export default function CategoriesTagsPage() {
       }
 
       // Show success toast
-      toast.success('Category updated successfully');
+      toast.success('Category created successfully');
 
       // Update the categories list
       if (editingItem) {
@@ -301,76 +307,186 @@ export default function CategoriesTagsPage() {
     setShowDeleteDialog(true)
   }
 
+  // Get all categories
+  const fetchTags = async (newPage = 1) => {
+    try {
+      setLoading(true);
+      const response = await fetch(
+        `/api/admin/tag?page=${newPage}`
+      );
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch tags');
+      }
+
+      const data = await response.json();
+
+      // If it's the first page, reset categories
+      if (newPage === 1) {
+        setTags(data.tags);
+        setTotalTags(data.total);
+      } else {
+        setTags(prev => [...prev, ...data.tags]);
+      }
+
+      setHasMore(data.hasMore);
+      setPage(newPage);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Failed to fetch tags');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Initial fetch
+  useEffect(() => {
+    fetchTags();
+  }, []);
+
+
   // Tag functions
   const handleCreateTag = () => {
     setTagForm({
       name: "",
       slug: "",
       description: "",
-      color: "#3b82f6",
-    })
-    setEditingItem(null)
-    setShowTagDialog(true)
+      color: "#3b82f6"
+    });
+    setEditingItem(null);
+    setShowTagDialog(true);
   }
 
   const handleEditTag = (tag: any) => {
-    setTagForm({
-      name: tag.name,
-      slug: tag.slug,
-      description: tag.description,
-      color: tag.color,
-    })
-    setEditingItem(tag)
-    setShowTagDialog(true)
+    setTagForm(tag);
+    setEditingItem(tag);
+    setShowTagDialog(true);
   }
 
   const handleDeleteTag = (tag: any) => {
-    setDeleteItem(tag)
-    setShowDeleteDialog(true)
+    setDeleteItem(tag);
+    setShowDeleteDialog(true);
   }
 
-  const submitTag = () => {
-    if (editingItem) {
-      setTags((prev) => prev.map((tag) => (tag.id === editingItem.id ? { ...tag, ...tagForm } : tag)))
-    } else {
-      const newTag = {
-        id: Date.now(),
-        ...tagForm,
-        slug: tagForm.slug || tagForm.name.toLowerCase().replace(/\s+/g, "-"),
-        blogCount: 0,
-        createdAt: new Date().toISOString(),
+  const submitTag = async () => {
+    try {
+      setLoading(true);
+      let response;
+
+      if (editingItem) {
+        // Update existing tag
+        response = await fetch('/api/admin/tag', {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            id: editingItem.id,
+            name: tagForm.name,
+            slug: tagForm.slug,
+            description: tagForm.description,
+            color: tagForm.color
+          }),
+        });
+        if (!response.ok) {
+          throw new Error("Failed to update tag");
+        }
+        toast.success('Tag updated successfully');
+      } else {
+        // Create new tag
+        response = await fetch('/api/admin/tag', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            name: tagForm.name,
+            slug: tagForm.slug,
+            description: tagForm.description,
+            color: tagForm.color
+          }),
+        });
+        if (!response.ok) {
+          throw new Error("Failed to create tag");
+        }
+        toast.success('Tag created successfully');
       }
-      setTags((prev) => [...prev, newTag])
+
+      const data = await response.json();
+
+      // Update the tags list
+      if (editingItem) {
+        // Update existing tag
+        setTags(prev =>
+          prev.map(tag =>
+            tag.id === editingItem.id ? { ...tag, ...data } : tag
+          )
+        );
+      } else {
+        // Add new tag
+        setTags(prev => [...prev, data]);
+      }
+
+      // Reset form
+      setTagForm({
+        name: "",
+        slug: "",
+        description: "",
+        color: "#3b82f6"
+      });
+
+      // Clear editing state
+      setEditingItem(null);
+
+      // Close dialog
+      setShowTagDialog(false);
+
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Failed to save tag');
+    } finally {
+      setLoading(false);
     }
-    setShowTagDialog(false)
-  }
+  };
 
   const confirmDelete = async () => {
-    if (activeTab === "categories") {
-      setCategories((prev) => prev.filter((cat) => cat.id !== deleteItem.id))
-      const response = await fetch(`/api/admin/category/${deleteItem.id}`, {
-        method: "DELETE",
-      })
-      if (!response.ok) {
-        throw new Error("Failed to delete category");
-      }
-      toast.success('Category deleted successfully');
-    } else {
-      setTags((prev) => prev.filter((tag) => tag.id !== deleteItem.id))
-      const response = await fetch(`/api/admin/category/${deleteItem.id}`, {
-        method: "DELETE",
-      })
-      if (!response.ok) {
-        throw new Error("Failed to delete tag");
-      }
-      toast.success('Tag deleted successfully');
-    }
-    setShowDeleteDialog(false)
-  }
+    try {
+      setLoading(true);
+      let response;
+      let toastMessage = '';
+      let stateUpdateFunction;
 
-  const handleSelectTag = (tagId: number) => {
-    setSelectedTags((prev) => (prev.includes(tagId) ? prev.filter((id) => id !== tagId) : [...prev, tagId]))
-  }
+      if (activeTab === 'categories') {
+        // Delete category
+        response = await fetch(`/api/admin/category?id=${deleteItem.id}`, {
+          method: 'DELETE'
+        });
+        toastMessage = 'Category deleted successfully';
+        stateUpdateFunction = setCategories;
+      } else {
+        // Delete tag
+        response = await fetch(`/api/admin/tag?id=${deleteItem.id}`, {
+          method: 'DELETE'
+        });
+        toastMessage = 'Tag deleted successfully';
+        stateUpdateFunction = setTags;
+      }
+
+      if (!response.ok) {
+        throw new Error(`Failed to delete ${activeTab === 'categories' ? 'category' : 'tag'}`);
+      }
+
+      // Update the appropriate list
+      stateUpdateFunction(prev => prev.filter(item => item.id !== deleteItem.id));
+
+      toast.success(toastMessage);
+      setShowDeleteDialog(false);
+
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : `Failed to delete ${activeTab === 'categories' ? 'category' : 'tag'}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
 
   return (
     <AdminLayout>
@@ -448,10 +564,6 @@ export default function CategoriesTagsPage() {
               </div>
               <div className="flex flex-wrap gap-2">
                 <Button variant="outline" size="sm">
-                  <Upload className="mr-2 h-4 w-4" />
-                  Import
-                </Button>
-                <Button variant="outline" size="sm">
                   <Download className="mr-2 h-4 w-4" />
                   Export
                 </Button>
@@ -492,7 +604,7 @@ export default function CategoriesTagsPage() {
                           <div className="flex items-center gap-2">
                             <h3 className="font-medium">{category.name}</h3>
                             <Badge variant="secondary" className="text-xs">
-                              {category.blogs.length} posts
+                              {category.blogs?.length} posts
                             </Badge>
                           </div>
                           <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">{category.description}</p>
@@ -528,13 +640,21 @@ export default function CategoriesTagsPage() {
                   ))}
                 </div>
                 {hasMore && !loading && (
-                  <Button onClick={handleLoadMore} variant="outline" className="w-full justify-center">
-                    Load More
-                  </Button>
+                  <div className="flex flex-col items-center gap-4">
+                    <Button onClick={handleLoadMore} variant="outline" className="w-full md:w-auto justify-center">
+                      <RefreshCw className="mr-2 h-4 w-4" />
+                      Load More
+                    </Button>
+                    <p className="text-sm text-muted-foreground mb-2">
+                      Showing {categories.length} of {totalCategories} results
+                    </p>
+                  </div>
                 )}
                 {loading && (
-                  <div className="flex justify-center h-20 items-center">
-                    <Loader2 className="h-9 w-9 animate-spin text-blue-600" />
+                  <div className="flex items-center justify-center p-8">
+                    <div className="flex flex-col items-center gap-2">
+                      <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-primary"></div>
+                    </div>
                   </div>
                 )}
               </CardContent>
@@ -562,10 +682,6 @@ export default function CategoriesTagsPage() {
                     >
                       <div className="flex items-start justify-between">
                         <div className="flex items-center gap-2">
-                          <Checkbox
-                            checked={selectedTags.includes(tag.id)}
-                            onCheckedChange={() => handleSelectTag(tag.id)}
-                          />
                           <div className="w-3 h-3 rounded-full" style={{ backgroundColor: tag.color }} />
                         </div>
                         <DropdownMenu>
@@ -595,7 +711,7 @@ export default function CategoriesTagsPage() {
                         <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">{tag.description}</p>
                         <div className="flex items-center justify-between mt-3">
                           <Badge variant="secondary" className="text-xs">
-                            {tag.blogCount} posts
+                            {tag.blogs?.length} posts
                           </Badge>
                           <span className="text-xs text-gray-500">{new Date(tag.createdAt).toLocaleDateString()}</span>
                         </div>
@@ -603,6 +719,24 @@ export default function CategoriesTagsPage() {
                     </div>
                   ))}
                 </div>
+                {hasMore && !loading && (
+                  <div className="flex flex-col items-center gap-4">
+                    <Button onClick={handleLoadMore} variant="outline" className="w-full md:w-auto flex justify-center">
+                      <RefreshCw className="mr-2 h-4 w-4" />
+                      Load More
+                    </Button>
+                    <p className="text-sm text-muted-foreground mb-2">
+                      Showing {tags.length} of {totalTags} results
+                    </p>
+                  </div>
+                )}
+                {loading && (
+                  <div className="flex items-center justify-center p-8">
+                    <div className="flex flex-col items-center gap-2">
+                      <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-primary"></div>
+                    </div>
+                  </div>
+                )}
               </CardContent>
             </Card>
           </TabsContent>
@@ -745,9 +879,17 @@ export default function CategoriesTagsPage() {
             <Button variant="outline" onClick={() => setShowTagDialog(false)}>
               Cancel
             </Button>
-            <Button onClick={submitTag} disabled={!tagForm.name.trim()}>
-              {editingItem ? "Update" : "Create"} Tag
-            </Button>
+            {loading ? (
+              <Button disabled>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                {editingItem ? "Updating..." : "Creating..."}
+              </Button>
+            ) : (
+              <Button onClick={submitTag} disabled={!tagForm.name.trim()}>
+                {editingItem ? "Update" : "Create"} Tag
+              </Button>
+            )}
+
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -758,8 +900,7 @@ export default function CategoriesTagsPage() {
           <AlertDialogHeader>
             <AlertDialogTitle>Are you sure?</AlertDialogTitle>
             <AlertDialogDescription>
-              This action cannot be undone. This will permanently delete the {activeTab.slice(0, -1)}"{deleteItem?.name}
-              " and remove it from all associated blog posts.
+              This action cannot be undone. This will permanently delete the {activeTab === 'categories' ? 'category' : 'tag'} "{deleteItem?.name}" and remove it from all associated blog posts.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -770,6 +911,6 @@ export default function CategoriesTagsPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </AdminLayout>
+    </AdminLayout >
   )
 }
