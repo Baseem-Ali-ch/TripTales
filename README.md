@@ -53,23 +53,22 @@ Welcome to **Trip Tales**, your personal platform for sharing and discovering ca
 ## ⚙️ Setup and Installation
 
 ### 1. 📦 Clone the Repository
-
-```bash
+```
 git clone https://github.com/Baseem-Ali-ch/TripTales.git
 cd TripTales
-2. 📁 Install Dependencies
-bash
-Copy
-Edit
+```
+
+### 2. 📁 Install Dependencies
+```
 npm install
 # or
 yarn install
-3. 🔐 Set Up Environment Variables
+```
+
+### 3. 🔐 Set Up Environment Variables
 Create a .env file in the root directory and add the following variables. Replace placeholder values with your actual credentials:
 
-env
-Copy
-Edit
+```
 DATABASE_URL="postgresql://user:password@host:port/database"
 JWT_SECRET="your_jwt_secret_key"
 
@@ -78,29 +77,26 @@ CLOUDINARY_API_KEY="your_cloudinary_api_key"
 CLOUDINARY_API_SECRET="your_cloudinary_api_secret"
 
 NEXT_PUBLIC_APP_URL="http://localhost:3000"
+```
+
 Note:
-
 DATABASE_URL: PostgreSQL connection string.
-
 JWT_SECRET: Used for signing JSON Web Tokens.
-
 Cloudinary credentials are available from your Cloudinary dashboard.
 
-4. 🛠️ Database Migration
+### 4. 🛠️ Database Migration
 Generate the Prisma client and push schema changes to the database:
 
-bash
-Copy
-Edit
+```
 npx prisma generate
 npx prisma db push
+```
 (Optional: seed the database if you have a seed script.)
 
-5. 🚀 Run the Development Server
-bash
-Copy
-Edit
+### 5. 🚀 Run the Development Server
+```
 npm run dev
 # or
 yarn dev
+```
 Visit http://localhost:3000 in your browser to see Trip Tales in action.
