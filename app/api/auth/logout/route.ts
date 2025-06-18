@@ -18,7 +18,13 @@ export async function POST() {
       maxAge: 0, 
       path: "/",
     });
-    localStorage.removeItem("role");
+    response.cookies.set("role", "", {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      maxAge: 0, 
+      path: "/",
+    });
 
     return response;
   } catch (error) {

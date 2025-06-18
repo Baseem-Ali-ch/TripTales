@@ -15,6 +15,7 @@ import {
   BookOpen,
   Contact,
   Router,
+  LogIn,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -28,6 +29,7 @@ import { cn } from "@/lib/utils";
 import { useTheme } from "@/components/theme-provider";
 import { motion, AnimatePresence } from "framer-motion";
 import { usePathname, useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
 
 export function Navbar() {
   const [isScrolled, setIsScrolled] = React.useState(false);
@@ -35,6 +37,7 @@ export function Navbar() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = React.useState(false);
   const [isAccountExpanded, setIsAccountExpanded] = React.useState(false);
   const [scrollProgress, setScrollProgress] = React.useState(0);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
   const { theme, setTheme } = useTheme();
   const searchRef = React.useRef<HTMLDivElement>(null);
   const pathname = usePathname();
@@ -68,6 +71,15 @@ export function Navbar() {
       window.removeEventListener("scroll", handleScroll);
       document.removeEventListener("mousedown", handleClickOutside);
     };
+  }, []);
+
+  useEffect(() => {
+    const role = localStorage.getItem("role");
+    if (role) {
+      setIsLoggedIn(true);
+    } else {
+      setIsLoggedIn(false);
+    }
   }, []);
 
   const handleWriteBlog = () => {
@@ -151,8 +163,8 @@ export function Navbar() {
           </div>
 
           {/* User Profile */}
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
+          {isLoggedIn ? (
+            <Link href="/profile">
               <motion.button
                 whileHover={{ scale: 1.1 }}
                 className="p-2 rounded-full hover:bg-accent dark:hover:bg-accent dark:hover:text-black transition-colors"
@@ -160,20 +172,19 @@ export function Navbar() {
               >
                 <User className="w-5 h-5" />
               </motion.button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-48">
-              <DropdownMenuItem>
-                <Link href="/profile" className="flex w-full">
-                  My Profile
-                </Link>
-              </DropdownMenuItem>
-              <DropdownMenuItem>
-                <Link href="/logout" className="flex w-full">
-                  Log Out
-                </Link>
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+            </Link>
+          ) : (
+
+             <Link href="/auth/login">
+              <motion.button
+                whileHover={{ scale: 1.1 }}
+                className="p-2 rounded-full hover:bg-accent dark:hover:bg-accent dark:hover:text-black transition-colors"
+                aria-label="User login"
+              >
+                <LogIn className="w-5 h-5" />
+              </motion.button>
+            </Link>
+          )}
 
           {/* Theme Toggle */}
           <motion.button

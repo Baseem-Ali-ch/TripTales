@@ -17,7 +17,7 @@ export async function POST(req: Request) {
         email: email,
       },
     });
-
+    console.log('user', user)
     if (!user) {
       return NextResponse.json({ error: "Invalid email" }, { status: 400 });
     }
@@ -43,6 +43,12 @@ export async function POST(req: Request) {
       );
     }
 
+    //* Update last login time
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { lastLogin: new Date() },
+    });
+
     // Generate JWT token
     const token = sign(
       {
@@ -58,7 +64,7 @@ export async function POST(req: Request) {
     const response = NextResponse.json(
       {
         message: "Login successful",
-        user
+        user,
       },
       { status: 200 }
     );
@@ -71,6 +77,12 @@ export async function POST(req: Request) {
       maxAge: 7 * 24 * 60 * 60,
       path: "/",
     });
+    response.cookies.set('role', user.role, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'strict',
+    maxAge: 60 * 60 * 24 // 24 hours
+  })
 
     return response;
   } catch (error) {

@@ -1,12 +1,12 @@
-"use client"
+"use client";
 
-import { CardFooter } from "@/components/ui/card"
+import { CardFooter } from "@/components/ui/card";
 
-import type React from "react"
+import type React from "react";
 
-import { useState, useRef } from "react"
-import Image from "next/image"
-import Link from "next/link"
+import { useState, useRef, useEffect } from "react";
+import Image from "next/image";
+import Link from "next/link";
 import {
   Camera,
   Edit,
@@ -26,20 +26,21 @@ import {
   Save,
   CheckIcon,
   Bookmark,
-} from "lucide-react"
-import { Navbar } from "@/components/navbar"
-import { Footer } from "@/components/footer"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Textarea } from "@/components/ui/textarea"
-import { Badge } from "@/components/ui/badge"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { Progress } from "@/components/ui/progress"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Switch } from "@/components/ui/switch"
-import { Label } from "@/components/ui/label"
-import { cn } from "@/lib/utils"
-import { BlogStepperForm } from "@/components/blog-stepper-form"
+} from "lucide-react";
+import { Navbar } from "@/components/navbar";
+import { Footer } from "@/components/footer";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Badge } from "@/components/ui/badge";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Progress } from "@/components/ui/progress";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
+import { cn } from "@/lib/utils";
+import { BlogStepperForm } from "@/components/blog-stepper-form";
+import { useRouter } from "next/navigation";
 
 // Sample user data
 const USER = {
@@ -58,7 +59,7 @@ const USER = {
     linkedin: "https://linkedin.com/in/alexj",
     instagram: "https://instagram.com/alexj",
   },
-}
+};
 
 // Sample saved blogs data
 const SAVED_BLOGS = [
@@ -102,7 +103,7 @@ const SAVED_BLOGS = [
     },
     savedDate: "May 10, 2023",
   },
-]
+];
 
 // Sample user blogs data
 const MY_BLOGS = [
@@ -142,84 +143,167 @@ const MY_BLOGS = [
     likes: 0,
     status: "under-review",
   },
-]
+];
 
 export default function ProfilePage() {
-  const [activeTab, setActiveTab] = useState("saved")
-  const [isEditingProfile, setIsEditingProfile] = useState(false)
-  const [savedBlogs, setSavedBlogs] = useState(SAVED_BLOGS)
-  const [myBlogs, setMyBlogs] = useState(MY_BLOGS)
-  const [isSaving, setIsSaving] = useState(false)
-  const [saveSuccess, setSaveSuccess] = useState<boolean | null>(null)
-  const [passwordStrength, setPasswordStrength] = useState(0)
+  const [activeTab, setActiveTab] = useState("saved");
+  const [isEditingProfile, setIsEditingProfile] = useState(false);
+  const [savedBlogs, setSavedBlogs] = useState(SAVED_BLOGS);
+  const [myBlogs, setMyBlogs] = useState(MY_BLOGS);
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveSuccess, setSaveSuccess] = useState<boolean | null>(null);
+  const [passwordStrength, setPasswordStrength] = useState(0);
   const [passwordRequirements, setPasswordRequirements] = useState({
     length: false,
     uppercase: false,
     lowercase: false,
     number: false,
     special: false,
-  })
+  });
   const [formData, setFormData] = useState({
-    name: USER.name,
-    username: USER.username,
-    email: USER.email,
-    bio: USER.bio,
-    twitter: USER.socialLinks.twitter,
-    github: USER.socialLinks.github,
-    linkedin: USER.socialLinks.linkedin,
-    instagram: USER.socialLinks.instagram,
+    fullName: "",
+    username: "",
+    email: "",
+    bio: "",
+    twitter: "",
+    github: "",
+    linkedin: "",
+    instagram: "",
     currentPassword: "",
     newPassword: "",
     confirmPassword: "",
     publicProfile: true,
-  })
+  });
+  const [userData, setUserData] = useState({
+    fullName: "",
+    username: "",
+    email: "",
+    bio: "",
+    profilePicture: "",
+    coverPhoto: "",
+    followers: 0,
+    following: 0,
+    isPublic: true,
+    socialLinks: {
+      twitter: "",
+      github: "",
+      linkedin: "",
+      instagram: "",
+    },
+  });
+  const [error, setError] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isBlogStepperOpen, setIsBlogStepperOpen] = useState(false);
+  const [editingBlog, setEditingBlog] = useState<any>(null);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const fileInputCoverRef = useRef<HTMLInputElement>(null);
+  const fileInputProfileRef = useRef<HTMLInputElement>(null);
+  const router = useRouter();
 
-  const [isBlogStepperOpen, setIsBlogStepperOpen] = useState(false)
-  const [editingBlog, setEditingBlog] = useState<any>(null)
+  //* fetch user data on mount
+  useEffect(() => {
+    const fetchUserData = async () => {
+      try {
+        const response = await fetch("/api/user/profile");
+        const data = await response.json();
+        if (!response.ok) {
+          throw new Error(data.error);
+        }
+        setUserData(data);
+      } catch (error: any) {
+        setError(error.message || "Failed to load profile data");
+        console.log("Error fetching user data:", error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    fetchUserData();
+  }, []);
 
-  const fileInputCoverRef = useRef<HTMLInputElement>(null)
-  const fileInputProfileRef = useRef<HTMLInputElement>(null)
+  //* Handle logout
+  const handleLogout = async () => {
+    try {
+      setIsLoggingOut(true);
+      const response = await fetch("/api/auth/logout", {
+        method: "POST",
+      });
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error);
+      }
+      localStorage.removeItem("role");
+      // Redirect to login page
+      router.push("/auth/login");
+    } catch (error: any) {
+      setError(error.message || "Failed to log out");
+      console.error("Logout error:", error);
+      setIsLoggingOut(false);
+    }
+  };
+
+  //* Initialize form data with user data
+  useEffect(() => {
+    if (userData) {
+      setFormData({
+        fullName: userData.fullName || "",
+        username: userData.username || "",
+        email: userData.email || "",
+        bio: userData?.bio || "",
+        twitter: userData.socialLinks?.twitter || "",
+        github: userData.socialLinks?.github || "",
+        linkedin: userData.socialLinks?.linkedin || "",
+        instagram: userData.socialLinks?.instagram || "",
+        currentPassword: "",
+        newPassword: "",
+        confirmPassword: "",
+        publicProfile: userData?.isPublic ?? true,
+      });
+    }
+  }, [userData]);
 
   // Handle tab change
   const handleTabChange = (value: string) => {
-    setActiveTab(value)
-  }
+    setActiveTab(value);
+  };
 
   // Handle remove saved blog
   const handleRemoveSaved = (id: number) => {
-    setSavedBlogs(savedBlogs.filter((blog) => blog.id !== id))
-  }
+    setSavedBlogs(savedBlogs.filter((blog) => blog.id !== id));
+  };
 
   // Handle delete blog
   const handleDeleteBlog = (id: number) => {
-    setMyBlogs(myBlogs.filter((blog) => blog.id !== id))
-  }
+    setMyBlogs(myBlogs.filter((blog) => blog.id !== id));
+  };
 
   // Handle cover photo upload
   const handleCoverPhotoUpload = () => {
-    fileInputCoverRef.current?.click()
-  }
+    fileInputCoverRef.current?.click();
+  };
 
   // Handle profile picture upload
   const handleProfilePictureUpload = () => {
-    fileInputProfileRef.current?.click()
-  }
+    fileInputProfileRef.current?.click();
+  };
 
   // Handle form input change
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    const { name, value } = e.target
-    setFormData({ ...formData, [name]: value })
+  const handleInputChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
+  ) => {
+    const { name, value } = e.target;
+    setFormData({ ...formData, [name]: value });
 
     // Check password strength
     if (name === "newPassword") {
-      checkPasswordStrength(value)
+      checkPasswordStrength(value);
     }
-  }
+  };
 
   // Handle switch change
   const handleSwitchChange = (checked: boolean) => {
-    setFormData({ ...formData, publicProfile: checked })
-  }
+    setFormData({ ...formData, publicProfile: checked });
+  };
 
   // Check password strength
   const checkPasswordStrength = (password: string) => {
@@ -229,38 +313,85 @@ export default function ProfilePage() {
       lowercase: /[a-z]/.test(password),
       number: /[0-9]/.test(password),
       special: /[^A-Za-z0-9]/.test(password),
-    }
+    };
 
-    setPasswordRequirements(requirements)
+    setPasswordRequirements(requirements);
 
     // Calculate strength percentage
-    const metRequirements = Object.values(requirements).filter(Boolean).length
-    const strengthPercentage = (metRequirements / 5) * 100
-    setPasswordStrength(strengthPercentage)
-  }
+    const metRequirements = Object.values(requirements).filter(Boolean).length;
+    const strengthPercentage = (metRequirements / 5) * 100;
+    setPasswordStrength(strengthPercentage);
+  };
 
-  // Handle form submission
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-    setIsSaving(true)
+  //* Handle user profile edit form submission
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSaving(true);
 
     // Simulate API call
-    setTimeout(() => {
-      setIsSaving(false)
-      setSaveSuccess(true)
+    setError(null);
+
+    try {
+      // Validate password if changing
+      if (formData.newPassword || formData.currentPassword) {
+        if (!formData.currentPassword) {
+          throw new Error("Current password is required");
+        }
+        if (!formData.newPassword) {
+          throw new Error("New password is required");
+        }
+        if (formData.newPassword !== formData.confirmPassword) {
+          throw new Error("Passwords do not match");
+        }
+        // Check password requirements
+        if (passwordStrength < 80) {
+          throw new Error("Password does not meet security requirements");
+        }
+      }
+
+      const response = await fetch("/api/user/profile", {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(formData),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to update profile");
+      }
+
+      setUserData(data);
+      setSaveSuccess(true);
+
+      // Reset password fields
+      setFormData((prev) => ({
+        ...prev,
+        currentPassword: "",
+        newPassword: "",
+        confirmPassword: "",
+      }));
 
       // Reset success message after 3 seconds
       setTimeout(() => {
-        setSaveSuccess(null)
-        setIsEditingProfile(false)
-      }, 3000)
-    }, 1500)
-  }
+        setSaveSuccess(null);
+        setIsEditingProfile(false);
+      }, 3000);
+    } catch (error: any) {
+      console.error("Error updating profile:", error);
+      setSaveSuccess(false);
+      setError(error.message || "Failed to update profile");
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
   // Reset form when canceling edit
   const handleCancelEdit = () => {
     setFormData({
-      name: USER.name,
+      fullName: USER.name,
       username: USER.username,
       email: USER.email,
       bio: USER.bio,
@@ -272,10 +403,10 @@ export default function ProfilePage() {
       newPassword: "",
       confirmPassword: "",
       publicProfile: true,
-    })
-    setIsEditingProfile(false)
-    setSaveSuccess(null)
-  }
+    });
+    setIsEditingProfile(false);
+    setSaveSuccess(null);
+  };
 
   return (
     <div className="flex min-h-screen flex-col">
@@ -287,7 +418,7 @@ export default function ProfilePage() {
           {/* Cover Photo */}
           <div className="relative h-48 md:h-64 lg:h-80 overflow-hidden">
             <Image
-              src={USER.coverPhoto || "/placeholder.svg"}
+              src={userData.coverPhoto || "/placeholder.svg"}
               alt="Cover Photo"
               fill
               className="object-cover"
@@ -315,8 +446,13 @@ export default function ProfilePage() {
               <div className="flex flex-col md:flex-row md:items-end">
                 <div className="relative">
                   <Avatar className="h-32 w-32 border-4 border-background">
-                    <AvatarImage src={USER.profilePicture || "/placeholder.svg"} alt={USER.name} />
-                    <AvatarFallback>{USER.name.charAt(0)}</AvatarFallback>
+                    <AvatarImage
+                      src={userData.profilePicture || "/placeholder.svg"}
+                      alt={userData.fullName}
+                    />
+                    <AvatarFallback>
+                      {userData.fullName?.charAt(0)}
+                    </AvatarFallback>
                   </Avatar>
                   <button
                     onClick={handleProfilePictureUpload}
@@ -335,8 +471,10 @@ export default function ProfilePage() {
                 </div>
 
                 <div className="mt-4 md:mt-0 md:ml-6">
-                  <h1 className="text-2xl md:text-3xl font-bold">{USER.name}</h1>
-                  <p className="text-muted-foreground">@{USER.username}</p>
+                  <h1 className="text-2xl md:text-3xl font-bold">
+                    {userData.fullName}
+                  </h1>
+                  <p className="text-muted-foreground">@{userData.username}</p>
                 </div>
               </div>
 
@@ -344,11 +482,11 @@ export default function ProfilePage() {
               <div className="mt-4 md:mt-0 flex flex-col md:flex-row md:items-center gap-4">
                 <div className="flex gap-4">
                   <div className="text-center">
-                    <p className="font-bold">{USER.followers}</p>
+                    <p className="font-bold">{userData.followers}</p>
                     <p className="text-sm text-muted-foreground">Followers</p>
                   </div>
                   <div className="text-center">
-                    <p className="font-bold">{USER.following}</p>
+                    <p className="font-bold">{userData.following}</p>
                     <p className="text-sm text-muted-foreground">Following</p>
                   </div>
                 </div>
@@ -359,12 +497,27 @@ export default function ProfilePage() {
                 >
                   {isEditingProfile ? "Cancel Edit" : "Edit Profile"}
                 </Button>
+                <Button
+                  onClick={handleLogout}
+                  variant="destructive"
+                  className="md:ml-2"
+                  disabled={isLoggingOut}
+                >
+                  {isLoggingOut ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Logging out...
+                    </>
+                  ) : (
+                    "Logout"
+                  )}
+                </Button>
               </div>
             </div>
 
             {/* Bio */}
             <div className="mb-8">
-              <p className="text-muted-foreground">{USER.bio}</p>
+              <p className="text-muted-foreground">{userData.bio}</p>
             </div>
 
             {/* Profile Settings Section */}
@@ -385,7 +538,13 @@ export default function ProfilePage() {
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div className="space-y-2">
                           <Label htmlFor="name">Full Name</Label>
-                          <Input id="name" name="name" value={formData.name} onChange={handleInputChange} required />
+                          <Input
+                            id="name"
+                            name="name"
+                            value={formData.fullName}
+                            onChange={handleInputChange}
+                            required
+                          />
                         </div>
                         <div className="space-y-2">
                           <Label htmlFor="username">Username</Label>
@@ -410,23 +569,34 @@ export default function ProfilePage() {
                         </div>
                         <div className="space-y-2 md:col-span-2">
                           <Label htmlFor="bio">Bio</Label>
-                          <Textarea id="bio" name="bio" value={formData.bio} onChange={handleInputChange} rows={4} />
+                          <Textarea
+                            id="bio"
+                            name="bio"
+                            value={formData.bio}
+                            onChange={handleInputChange}
+                            rows={4}
+                          />
                         </div>
                       </div>
 
                       {/* Profile Visibility */}
                       <div className="mt-6">
-                        <h3 className="text-lg font-medium mb-4">Profile Visibility</h3>
+                        <h3 className="text-lg font-medium mb-4">
+                          Profile Visibility
+                        </h3>
                         <div className="flex items-center space-x-2">
                           <Switch
                             id="publicProfile"
                             checked={formData.publicProfile}
                             onCheckedChange={handleSwitchChange}
                           />
-                          <Label htmlFor="publicProfile">Make my profile public</Label>
+                          <Label htmlFor="publicProfile">
+                            Make my profile public
+                          </Label>
                         </div>
                         <p className="text-sm text-muted-foreground mt-1">
-                          When your profile is public, anyone can see your published blogs and profile information.
+                          When your profile is public, anyone can see your
+                          published blogs and profile information.
                         </p>
                       </div>
                     </TabsContent>
@@ -435,7 +605,9 @@ export default function ProfilePage() {
                     <TabsContent value="password" className="mt-0">
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div className="space-y-2">
-                          <Label htmlFor="currentPassword">Current Password</Label>
+                          <Label htmlFor="currentPassword">
+                            Current Password
+                          </Label>
                           <Input
                             id="currentPassword"
                             name="currentPassword"
@@ -460,7 +632,11 @@ export default function ProfilePage() {
                                   <div className="flex justify-between text-xs">
                                     <span>Password strength</span>
                                     <span>
-                                      {passwordStrength < 40 ? "Weak" : passwordStrength < 80 ? "Medium" : "Strong"}
+                                      {passwordStrength < 40
+                                        ? "Weak"
+                                        : passwordStrength < 80
+                                        ? "Medium"
+                                        : "Strong"}
                                     </span>
                                   </div>
                                   <Progress
@@ -469,8 +645,8 @@ export default function ProfilePage() {
                                       passwordStrength < 40
                                         ? "text-destructive"
                                         : passwordStrength < 80
-                                          ? "text-amber-500"
-                                          : "text-green-500",
+                                        ? "text-amber-500"
+                                        : "text-green-500"
                                     )}
                                   />
                                 </div>
@@ -478,7 +654,9 @@ export default function ProfilePage() {
                                   <li
                                     className={cn(
                                       "flex items-center gap-1",
-                                      passwordRequirements.length ? "text-green-500" : "text-muted-foreground",
+                                      passwordRequirements.length
+                                        ? "text-green-500"
+                                        : "text-muted-foreground"
                                     )}
                                   >
                                     {passwordRequirements.length ? (
@@ -491,7 +669,9 @@ export default function ProfilePage() {
                                   <li
                                     className={cn(
                                       "flex items-center gap-1",
-                                      passwordRequirements.uppercase ? "text-green-500" : "text-muted-foreground",
+                                      passwordRequirements.uppercase
+                                        ? "text-green-500"
+                                        : "text-muted-foreground"
                                     )}
                                   >
                                     {passwordRequirements.uppercase ? (
@@ -504,7 +684,9 @@ export default function ProfilePage() {
                                   <li
                                     className={cn(
                                       "flex items-center gap-1",
-                                      passwordRequirements.lowercase ? "text-green-500" : "text-muted-foreground",
+                                      passwordRequirements.lowercase
+                                        ? "text-green-500"
+                                        : "text-muted-foreground"
                                     )}
                                   >
                                     {passwordRequirements.lowercase ? (
@@ -517,7 +699,9 @@ export default function ProfilePage() {
                                   <li
                                     className={cn(
                                       "flex items-center gap-1",
-                                      passwordRequirements.number ? "text-green-500" : "text-muted-foreground",
+                                      passwordRequirements.number
+                                        ? "text-green-500"
+                                        : "text-muted-foreground"
                                     )}
                                   >
                                     {passwordRequirements.number ? (
@@ -530,7 +714,9 @@ export default function ProfilePage() {
                                   <li
                                     className={cn(
                                       "flex items-center gap-1",
-                                      passwordRequirements.special ? "text-green-500" : "text-muted-foreground",
+                                      passwordRequirements.special
+                                        ? "text-green-500"
+                                        : "text-muted-foreground"
                                     )}
                                   >
                                     {passwordRequirements.special ? (
@@ -545,7 +731,9 @@ export default function ProfilePage() {
                             )}
                           </div>
                           <div className="space-y-2">
-                            <Label htmlFor="confirmPassword">Confirm New Password</Label>
+                            <Label htmlFor="confirmPassword">
+                              Confirm New Password
+                            </Label>
                             <Input
                               id="confirmPassword"
                               name="confirmPassword"
@@ -553,26 +741,31 @@ export default function ProfilePage() {
                               value={formData.confirmPassword}
                               onChange={handleInputChange}
                             />
-                            {formData.newPassword && formData.confirmPassword && (
-                              <p
-                                className={cn(
-                                  "text-xs mt-1",
-                                  formData.newPassword === formData.confirmPassword
-                                    ? "text-green-500"
-                                    : "text-destructive",
-                                )}
-                              >
-                                {formData.newPassword === formData.confirmPassword ? (
-                                  <span className="flex items-center gap-1">
-                                    <Check className="h-3 w-3" /> Passwords match
-                                  </span>
-                                ) : (
-                                  <span className="flex items-center gap-1">
-                                    <X className="h-3 w-3" /> Passwords do not match
-                                  </span>
-                                )}
-                              </p>
-                            )}
+                            {formData.newPassword &&
+                              formData.confirmPassword && (
+                                <p
+                                  className={cn(
+                                    "text-xs mt-1",
+                                    formData.newPassword ===
+                                      formData.confirmPassword
+                                      ? "text-green-500"
+                                      : "text-destructive"
+                                  )}
+                                >
+                                  {formData.newPassword ===
+                                  formData.confirmPassword ? (
+                                    <span className="flex items-center gap-1">
+                                      <Check className="h-3 w-3" /> Passwords
+                                      match
+                                    </span>
+                                  ) : (
+                                    <span className="flex items-center gap-1">
+                                      <X className="h-3 w-3" /> Passwords do not
+                                      match
+                                    </span>
+                                  )}
+                                </p>
+                              )}
                           </div>
                         </div>
                       </div>
@@ -582,7 +775,10 @@ export default function ProfilePage() {
                     <TabsContent value="links" className="mt-0">
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div className="space-y-2">
-                          <Label htmlFor="twitter" className="flex items-center gap-2">
+                          <Label
+                            htmlFor="twitter"
+                            className="flex items-center gap-2"
+                          >
                             <Twitter className="h-4 w-4" /> Twitter
                           </Label>
                           <Input
@@ -594,7 +790,10 @@ export default function ProfilePage() {
                           />
                         </div>
                         <div className="space-y-2">
-                          <Label htmlFor="github" className="flex items-center gap-2">
+                          <Label
+                            htmlFor="github"
+                            className="flex items-center gap-2"
+                          >
                             <Github className="h-4 w-4" /> GitHub
                           </Label>
                           <Input
@@ -606,7 +805,10 @@ export default function ProfilePage() {
                           />
                         </div>
                         <div className="space-y-2">
-                          <Label htmlFor="linkedin" className="flex items-center gap-2">
+                          <Label
+                            htmlFor="linkedin"
+                            className="flex items-center gap-2"
+                          >
                             <Linkedin className="h-4 w-4" /> LinkedIn
                           </Label>
                           <Input
@@ -618,7 +820,10 @@ export default function ProfilePage() {
                           />
                         </div>
                         <div className="space-y-2">
-                          <Label htmlFor="instagram" className="flex items-center gap-2">
+                          <Label
+                            htmlFor="instagram"
+                            className="flex items-center gap-2"
+                          >
                             <Instagram className="h-4 w-4" /> Instagram
                           </Label>
                           <Input
@@ -634,7 +839,11 @@ export default function ProfilePage() {
 
                     {/* Form Actions */}
                     <div className="flex justify-end gap-4 mt-6">
-                      <Button type="button" variant="outline" onClick={handleCancelEdit}>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={handleCancelEdit}
+                      >
                         Cancel
                       </Button>
                       <Button type="submit" disabled={isSaving}>
@@ -656,7 +865,7 @@ export default function ProfilePage() {
                           "p-3 rounded-md flex items-center gap-2 text-sm",
                           saveSuccess
                             ? "bg-green-500/10 text-green-500 border border-green-500/20"
-                            : "bg-destructive/10 text-destructive border border-destructive/20",
+                            : "bg-destructive/10 text-destructive border border-destructive/20"
                         )}
                       >
                         {saveSuccess ? (
@@ -667,7 +876,8 @@ export default function ProfilePage() {
                         ) : (
                           <>
                             <AlertCircle className="h-4 w-4" />
-                            There was an error updating your profile. Please try again.
+                            There was an error updating your profile. Please try
+                            again.
                           </>
                         )}
                       </div>
@@ -678,7 +888,11 @@ export default function ProfilePage() {
             )}
 
             {/* Tabs Navigation */}
-            <Tabs defaultValue="saved" className="mb-8" onValueChange={handleTabChange}>
+            <Tabs
+              defaultValue="saved"
+              className="mb-8"
+              onValueChange={handleTabChange}
+            >
               <TabsList className="grid w-full grid-cols-2 mb-8 h-13">
                 <TabsTrigger value="saved" className="text-base py-3">
                   Saved Blogs{" "}
@@ -710,7 +924,11 @@ export default function ProfilePage() {
                 ) : (
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                     {savedBlogs.map((blog) => (
-                      <SavedBlogCard key={blog.id} blog={blog} onRemove={handleRemoveSaved} />
+                      <SavedBlogCard
+                        key={blog.id}
+                        blog={blog}
+                        onRemove={handleRemoveSaved}
+                      />
                     ))}
                   </div>
                 )}
@@ -722,8 +940,8 @@ export default function ProfilePage() {
                   <h2 className="text-2xl font-bold">My Blogs</h2>
                   <Button
                     onClick={() => {
-                      setEditingBlog(null)
-                      setIsBlogStepperOpen(true)
+                      setEditingBlog(null);
+                      setIsBlogStepperOpen(true);
                     }}
                   >
                     <PenSquare className="mr-2 h-4 w-4" />
@@ -735,12 +953,14 @@ export default function ProfilePage() {
                   <EmptyState
                     title="You haven't written any blogs yet"
                     description="Share your knowledge and insights with the world by writing your first blog post."
-                    icon={<PenSquare className="h-12 w-12 text-muted-foreground" />}
+                    icon={
+                      <PenSquare className="h-12 w-12 text-muted-foreground" />
+                    }
                     action={
                       <Button
                         onClick={() => {
-                          setEditingBlog(null)
-                          setIsBlogStepperOpen(true)
+                          setEditingBlog(null);
+                          setIsBlogStepperOpen(true);
                         }}
                       >
                         <PenSquare className="mr-2 h-4 w-4" />
@@ -756,8 +976,8 @@ export default function ProfilePage() {
                         blog={blog}
                         onDelete={handleDeleteBlog}
                         onEdit={(blog) => {
-                          setEditingBlog(blog)
-                          setIsBlogStepperOpen(true)
+                          setEditingBlog(blog);
+                          setIsBlogStepperOpen(true);
                         }}
                       />
                     ))}
@@ -774,42 +994,55 @@ export default function ProfilePage() {
       <BlogStepperForm
         isOpen={isBlogStepperOpen}
         onClose={() => {
-          setIsBlogStepperOpen(false)
-          setEditingBlog(null)
+          setIsBlogStepperOpen(false);
+          setEditingBlog(null);
         }}
         blog={editingBlog}
         onSave={(blogData) => {
-          console.log("Blog saved:", blogData)
+          console.log("Blog saved:", blogData);
           // In a real app, you would save the blog data
           if (editingBlog) {
             // Update existing blog
-            setMyBlogs(myBlogs.map((b) => (b.id === editingBlog.id ? { ...b, ...blogData } : b)))
+            setMyBlogs(
+              myBlogs.map((b) =>
+                b.id === editingBlog.id ? { ...b, ...blogData } : b
+              )
+            );
           } else {
             // Add new blog
-            setMyBlogs([...myBlogs, { ...blogData, id: Date.now(), publishedDate: "", views: 0, likes: 0 }])
+            setMyBlogs([
+              ...myBlogs,
+              {
+                ...blogData,
+                id: Date.now(),
+                publishedDate: "",
+                views: 0,
+                likes: 0,
+              },
+            ]);
           }
-          setIsBlogStepperOpen(false)
-          setEditingBlog(null)
+          setIsBlogStepperOpen(false);
+          setEditingBlog(null);
         }}
         isAdmin={false}
       />
     </div>
-  )
+  );
 }
 
 // Saved Blog Card Component
 interface SavedBlogCardProps {
   blog: {
-    id: number
-    title: string
-    image: string
+    id: number;
+    title: string;
+    image: string;
     author: {
-      name: string
-      avatar: string
-    }
-    savedDate: string
-  }
-  onRemove: (id: number) => void
+      name: string;
+      avatar: string;
+    };
+    savedDate: string;
+  };
+  onRemove: (id: number) => void;
 }
 
 function SavedBlogCard({ blog, onRemove }: SavedBlogCardProps) {
@@ -817,7 +1050,12 @@ function SavedBlogCard({ blog, onRemove }: SavedBlogCardProps) {
     <div className="group relative overflow-hidden rounded-lg border bg-card transition-all duration-300 hover:shadow-lg">
       <Link href={`/blog/${blog.id}`} className="block">
         <div className="relative aspect-video w-full">
-          <Image src={blog.image || "/placeholder.svg"} alt={blog.title} fill className="object-cover" />
+          <Image
+            src={blog.image || "/placeholder.svg"}
+            alt={blog.title}
+            fill
+            className="object-cover"
+          />
         </div>
         <div className="p-5">
           <h3 className="font-bold text-lg mb-2 line-clamp-2 group-hover:text-primary transition-colors">
@@ -847,9 +1085,9 @@ function SavedBlogCard({ blog, onRemove }: SavedBlogCardProps) {
 
       <button
         onClick={(e) => {
-          e.preventDefault()
-          e.stopPropagation()
-          onRemove(blog.id)
+          e.preventDefault();
+          e.stopPropagation();
+          onRemove(blog.id);
         }}
         className="absolute top-2 right-2 p-1.5 bg-background/80 backdrop-blur-sm rounded-full hover:bg-background transition-colors"
         aria-label="Remove from saved"
@@ -858,45 +1096,52 @@ function SavedBlogCard({ blog, onRemove }: SavedBlogCardProps) {
         <Bookmark className="h-4 w-4 fill-primary text-primary bg-primary/10" />
       </button>
     </div>
-  )
+  );
 }
 
 // My Blog Card Component
 interface MyBlogCardProps {
   blog: {
-    id: number
-    title: string
-    image: string
-    publishedDate: string
-    views: number
-    likes: number
-    status: string
-  }
-  onDelete: (id: number) => void
-  onEdit: (blog: any) => void
+    id: number;
+    title: string;
+    image: string;
+    publishedDate: string;
+    views: number;
+    likes: number;
+    status: string;
+  };
+  onDelete: (id: number) => void;
+  onEdit: (blog: any) => void;
 }
 
 function MyBlogCard({ blog, onDelete, onEdit }: MyBlogCardProps) {
-  const [showConfirmDelete, setShowConfirmDelete] = useState(false)
+  const [showConfirmDelete, setShowConfirmDelete] = useState(false);
 
   const getStatusBadge = (status: string) => {
     switch (status) {
       case "published":
-        return <Badge className="bg-green-500">Published</Badge>
+        return <Badge className="bg-green-500">Published</Badge>;
       case "draft":
-        return <Badge variant="outline">Draft</Badge>
+        return <Badge variant="outline">Draft</Badge>;
       case "under-review":
-        return <Badge className="bg-amber-500">Under Review</Badge>
+        return <Badge className="bg-amber-500">Under Review</Badge>;
       default:
-        return null
+        return null;
     }
-  }
+  };
 
   return (
     <div className="group relative overflow-hidden rounded-lg border bg-card transition-all duration-300 hover:shadow-lg">
       <div className="relative aspect-video w-full">
-        <Image src={blog.image || "/placeholder.svg"} alt={blog.title} fill className="object-cover" />
-        <div className="absolute top-2 left-2">{getStatusBadge(blog.status)}</div>
+        <Image
+          src={blog.image || "/placeholder.svg"}
+          alt={blog.title}
+          fill
+          className="object-cover"
+        />
+        <div className="absolute top-2 left-2">
+          {getStatusBadge(blog.status)}
+        </div>
       </div>
       <div className="p-5">
         <Link href={blog.status === "published" ? `/blog/${blog.id}` : "#"}>
@@ -925,7 +1170,9 @@ function MyBlogCard({ blog, onDelete, onEdit }: MyBlogCardProps) {
             </>
           ) : (
             <div className="text-xs text-muted-foreground">
-              {blog.status === "draft" ? "Not published yet" : "Awaiting approval"}
+              {blog.status === "draft"
+                ? "Not published yet"
+                : "Awaiting approval"}
             </div>
           )}
         </div>
@@ -938,15 +1185,20 @@ function MyBlogCard({ blog, onDelete, onEdit }: MyBlogCardProps) {
             </Button>
             {showConfirmDelete ? (
               <div className="flex items-center gap-2">
-                <Button size="sm" variant="ghost" onClick={() => setShowConfirmDelete(false)} className="text-xs">
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => setShowConfirmDelete(false)}
+                  className="text-xs"
+                >
                   <X className="mr-1 h-3.5 w-3.5" />
                 </Button>
                 <Button
                   size="sm"
                   variant="destructive"
                   onClick={() => {
-                    onDelete(blog.id)
-                    setShowConfirmDelete(false)
+                    onDelete(blog.id);
+                    setShowConfirmDelete(false);
                   }}
                   className="text-xs"
                 >
@@ -967,15 +1219,15 @@ function MyBlogCard({ blog, onDelete, onEdit }: MyBlogCardProps) {
         </div>
       </div>
     </div>
-  )
+  );
 }
 
 // Empty State Component
 interface EmptyStateProps {
-  title: string
-  description: string
-  icon: React.ReactNode
-  action: React.ReactNode
+  title: string;
+  description: string;
+  icon: React.ReactNode;
+  action: React.ReactNode;
 }
 
 function EmptyState({ title, description, icon, action }: EmptyStateProps) {
@@ -986,5 +1238,5 @@ function EmptyState({ title, description, icon, action }: EmptyStateProps) {
       <p className="text-muted-foreground mb-6 max-w-md">{description}</p>
       {action}
     </div>
-  )
+  );
 }

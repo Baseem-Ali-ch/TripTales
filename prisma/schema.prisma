@@ -20,20 +20,20 @@ model User {
   coverPicture   String?
   profilePicture String?
   bio            String?
-  socialLinks    SocialLink[]
+  socialLinks    SocialLinks[]
   public         Boolean      @default(true)
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
 }
 
-model SocialLink {
-  id        String   @id @default(uuid())
-  type      String
-  url       String
-  user      User     @relation(fields: [userId], references: [id])
-  userId    String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+model SocialLinks {
+  id        String  @id @default(cuid())
+  twitter   String?
+  github    String?
+  linkedin  String?
+  instagram String?
+  userId    String  @unique
+  user      User    @relation(fields: [userId], references: [id])
 }
 
 enum UserStatus {

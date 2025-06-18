@@ -171,13 +171,9 @@ export default function LoginPage() {
             password: userForm.password,
           }),
         });
-
-        const data = await response.json();
-        console.log('data',data)
-        localStorage.setItem("role", data.user.role);
-
         if (!response.ok) {
-          throw new Error(data.error);
+          const data = await response.json();
+          throw new Error(data.error || "Login failed");
         }
 
         setLoginSuccess(true);
@@ -186,9 +182,9 @@ export default function LoginPage() {
         setTimeout(() => {
           router.push("/profile");
         }, 1500);
-      } catch (error: any) {
+      } catch (error) {
         console.log("Login error:", error);
-        setLoginError(error.message);
+        setLoginError(error instanceof Error ? error.message : "Login failed");
       } finally {
         setIsLoading(false);
       }
@@ -214,11 +210,15 @@ export default function LoginPage() {
             password: adminForm.password,
           }),
         });
+        if (!response.ok) {
+          const data = await response.json();
+
+          throw new Error(data.error || "Login failed");
+        }
 
         const data = await response.json();
-
-        if (!response.ok) {
-          throw new Error(data.error || "Login failed");
+        if (data.user.role) {
+          localStorage.setItem("role", data.user.role);
         }
 
         setLoginSuccess(true);
